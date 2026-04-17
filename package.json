@@ -1,0 +1,16 @@
+{
+  "name": "scry-og",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/index.ts",
+    "start": "bun run src/index.ts"
+  },
+  "dependencies": {
+    "@thurinlabs/identity-kit": "^0.3.0",
+    "@resvg/resvg-js": "^2.6.0",
+    "hono": "^4.0.0",
+    "satori": "^0.12.0",
+    "viem": "^2.21.0"
+  }
+}
