@@ -6,6 +6,7 @@ import {
   REGISTRY_ABI,
   CONTRACT_DEPLOY_BLOCK,
   fetchKeyByFingerprint,
+  fetchKeyByKeyId,
   parsePgpKey,
   identifyProof,
   fetchEFPGraph,
@@ -67,6 +68,17 @@ export async function resolveByEns(name: string): Promise<ResolvedIdentity> {
 }
 
 export async function resolveByFingerprint(fingerprint: string): Promise<ResolvedIdentity> {
+  // If it's a 16-char key ID, resolve to full fingerprint via keyserver
+  if (/^[0-9a-fA-F]{16}$/.test(fingerprint)) {
+    const armoredKey = await fetchKeyByKeyId(fingerprint)
+    if (armoredKey) {
+      const keyInfo = await parsePgpKey(armoredKey)
+      if (keyInfo) {
+        fingerprint = keyInfo.fingerprint
+      }
+    }
+  }
+
   const cacheKey = `fpr:${fingerprint.toLowerCase()}`
   const cached = cacheGet<ResolvedIdentity>(cacheKey)
   if (cached) return cached
