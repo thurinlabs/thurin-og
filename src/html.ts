@@ -1,15 +1,15 @@
 import type { ResolvedIdentity } from './resolve'
 
-const SCRY_BASE = 'https://scry.thurin.id'
+const THURIN_BASE = 'https://thurin.id'
 
 export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
   const title = identity.ensName
-    ? `${identity.ensName} — Scry`
+    ? `${identity.ensName} — Thurin`
     : identity.address
-      ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Scry`
+      ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Thurin`
       : identity.fingerprint
-        ? `${identity.fingerprint.slice(0, 8)}... — Scry`
-        : 'Scry — Thurin Identity Explorer'
+        ? `${identity.fingerprint.slice(0, 8)}... — Thurin`
+        : 'Thurin — Identity Explorer'
 
   const parts: string[] = []
   if (identity.activeClaims > 0) parts.push(`${identity.activeClaims} seal${identity.activeClaims !== 1 ? 's' : ''}`)
@@ -17,10 +17,10 @@ export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
   if (identity.efp?.followers) parts.push(`${identity.efp.followers} followers`)
   const description = parts.length > 0
     ? parts.join(' · ')
-    : 'Look up any Ethereum identity on Scry'
+    : 'Look up any Ethereum identity on Thurin'
 
-  const canonicalUrl = `${SCRY_BASE}${path}`
-  const imageUrl = `${SCRY_BASE}/og${path}.png`
+  const canonicalUrl = `${THURIN_BASE}${path}`
+  const imageUrl = `${THURIN_BASE}/og${path}.png`
 
   const relMeLinks = identity.mastodonUrls
     .map((url) => `  <link rel="me" href="${escapeHtml(url)}" />`)
@@ -44,7 +44,7 @@ ${relMeLinks}
 </head>
 <body>
   <script>window.location.href = "${canonicalUrl}";</script>
-  <noscript><a href="${canonicalUrl}">View on Scry</a></noscript>
+  <noscript><a href="${canonicalUrl}">View on Thurin</a></noscript>
 </body>
 </html>`
 }

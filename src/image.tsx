@@ -182,7 +182,7 @@ export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer>
           <path d="M50 65 L50 53" fill="none" stroke={C.secondary} stroke-width="3" stroke-linecap="round"/>
         </svg>
         <span style={{ fontSize: 24, color: C.secondary, fontStyle: 'italic' }}>Prove more. Reveal less.</span>
-        <span style={{ fontSize: 26, color: C.muted }}>scry.thurin.id</span>
+        <span style={{ fontSize: 26, color: C.muted }}>thurin.id</span>
       </div>
     </div>,
     {

@@ -1,6 +1,6 @@
 # scry-og
 
-Open Graph metadata and share card service for [Scry](https://scry.thurin.id). Generates per-identity OG tags, share card images, and `rel="me"` links for social crawlers.
+Open Graph metadata and share card service for [Scry](https://thurin.id). Generates per-identity OG tags, share card images, and `rel="me"` links for social crawlers.
 
 A [Thurin Labs](https://thurin.id) project.
 
@@ -101,6 +101,6 @@ Runs on the VPS as a systemd service behind nginx. Deploy via:
 
 ## Links
 
-- [Scry](https://scry.thurin.id)
+- [Scry](https://thurin.id)
 - [Documentation](https://docs.thurin.id)
 - [Codeberg](https://codeberg.org/thurinlabs)
