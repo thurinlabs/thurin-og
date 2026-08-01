@@ -1,9 +1,23 @@
 import { Hono } from 'hono'
 import { resolveByAddress, resolveByEns, resolveByFingerprint } from './resolve'
-import { renderOgHtml } from './html'
-import { renderOgImage, renderCardImage } from './image'
+import { renderOgHtml, renderSiteOgHtml } from './html'
+import { renderOgImage, renderCardImage, renderSiteImage } from './image'
 
 const app = new Hono()
+
+// ─── Site routes (generic card for non-identity pages) ───────────────────────
+
+app.get('/', (c) => c.html(renderSiteOgHtml('/')))
+
+app.get('/og/site.png', async (c) => {
+  try {
+    const png = await renderSiteImage()
+    return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=86400' })
+  } catch (err: any) {
+    console.error('Site image error:', err)
+    return c.text('Internal error', 500)
+  }
+})
 
 // ─── HTML routes (OG meta tags + rel="me") ───────────────────────────────────
 
@@ -35,7 +49,7 @@ app.get('/og/eth/:address', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('OG image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
@@ -47,7 +61,7 @@ app.get('/og/pgp/:fingerprint', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('OG image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
@@ -59,7 +73,7 @@ app.get('/og/ens/:name', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('OG image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
@@ -73,7 +87,7 @@ app.get('/card/eth/:address', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('Card image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
@@ -85,7 +99,7 @@ app.get('/card/pgp/:fingerprint', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('Card image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
@@ -97,13 +111,28 @@ app.get('/card/ens/:name', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('Card image error:', err)
-    return c.text(err.message, 500)
+    return c.text('Internal error', 500)
   }
 })
 
 // ─── Health check ────────────────────────────────────────────────────────────
 
 app.get('/health', (c) => c.text('ok'))
+
+// ─── Catch-all ───────────────────────────────────────────────────────────────
+// nginx forwards every crawler-UA request here, so unmatched paths must serve
+// a card, not a 404 — otherwise new SPA routes silently lose their previews.
+// Image/asset-like paths stay 404: a 200 HTML response where a PNG is expected
+// would poison caches and hide broken og:image URLs.
+
+app.notFound((c) => {
+  const pathname = new URL(c.req.url).pathname
+  const assetLike = pathname.startsWith('/og/')
+    || pathname.startsWith('/card/')
+    || /\.(png|jpe?g|gif|svg|ico|webp|css|js|map|txt|xml|json)$/i.test(pathname)
+  if (assetLike) return c.text('Not Found', 404)
+  return c.html(renderSiteOgHtml(pathname), 200)
+})
 
 // ─── Start ───────────────────────────────────────────────────────────────────
 

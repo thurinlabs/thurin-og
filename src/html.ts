@@ -33,20 +33,62 @@ export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
   <title>${escapeHtml(title)}</title>
   <meta property="og:title" content="${escapeHtml(title)}" />
   <meta property="og:description" content="${escapeHtml(description)}" />
-  <meta property="og:image" content="${imageUrl}" />
-  <meta property="og:url" content="${canonicalUrl}" />
+  <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
   <meta property="og:type" content="profile" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="${escapeHtml(title)}" />
   <meta name="twitter:description" content="${escapeHtml(description)}" />
-  <meta name="twitter:image" content="${imageUrl}" />
+  <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
 ${relMeLinks}
 </head>
 <body>
-  <script>window.location.href = "${canonicalUrl}";</script>
-  <noscript><a href="${canonicalUrl}">View on Thurin</a></noscript>
+  <script>window.location.href = ${escapeJsString(canonicalUrl)};</script>
+  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin</a></noscript>
 </body>
 </html>`
+}
+
+// Generic site card for non-identity pages: /, /signet, and any unmatched path.
+export function renderSiteOgHtml(path: string): string {
+  const normalized = path.replace(/\/+$/, '') || '/'
+  const title = normalized === '/signet'
+    ? 'Signet — Thurin'
+    : 'Thurin — Identity Explorer'
+  const description =
+    'Explore and verify the Thurin identity graph. Look up Ethereum addresses, ENS names, and GPG fingerprints.'
+
+  const canonicalUrl = `${THURIN_BASE}${path === '/' ? '/' : path}`
+  const imageUrl = `${THURIN_BASE}/og/site.png`
+
+  // Redirecting / to itself would loop if a browser ever hit this route directly.
+  const redirect = normalized === '/'
+    ? ''
+    : `  <script>window.location.href = ${escapeJsString(canonicalUrl)};</script>\n`
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(title)}</title>
+  <meta property="og:title" content="${escapeHtml(title)}" />
+  <meta property="og:description" content="${escapeHtml(description)}" />
+  <meta property="og:image" content="${escapeHtml(imageUrl)}" />
+  <meta property="og:url" content="${escapeHtml(canonicalUrl)}" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="${escapeHtml(title)}" />
+  <meta name="twitter:description" content="${escapeHtml(description)}" />
+  <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
+</head>
+<body>
+${redirect}  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin</a></noscript>
+</body>
+</html>`
+}
+
+function escapeJsString(str: string): string {
+  return JSON.stringify(str).replace(/</g, '\\u003c')
 }
 
 function escapeHtml(str: string): string {

@@ -164,6 +164,35 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
   return Buffer.from(resvg.render().asPng())
 }
 
+// Generic site card for non-identity pages (/, /signet, unmatched paths)
+export async function renderSiteImage(): Promise<Buffer> {
+  const fonts = await getFonts()
+
+  const svg = await satori(
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      width: 1200,
+      height: 630,
+      backgroundColor: C.bg,
+      border: `2px solid ${C.border}`,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 24,
+    }}>
+      <Thumbprint size={220} opacity={0.8} />
+      <span style={{ fontSize: 64, fontWeight: 700, color: C.heading }}>Thurin</span>
+      <span style={{ fontSize: 32, color: C.muted }}>Identity Explorer</span>
+      <span style={{ fontSize: 26, color: C.secondary, fontStyle: 'italic', marginTop: 16 }}>Prove more. Reveal less.</span>
+      <span style={{ fontSize: 24, color: C.muted }}>thurin.id</span>
+    </div>,
+    { width: 1200, height: 630, fonts },
+  )
+
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } })
+  return Buffer.from(resvg.render().asPng())
+}
+
 export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer> {
   const name = identity.ensName || identity.address || identity.fingerprint || 'Unknown'
 
