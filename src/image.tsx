@@ -79,6 +79,91 @@ function Stat({ value, label }: { value: number; label: string }) {
   )
 }
 
+function StatInline({ value, label }: { value: number; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+      <span style={{ fontSize: 30, fontWeight: 700, color: C.heading }}>{value}</span>
+      <span style={{ fontSize: 15, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
+    </div>
+  )
+}
+
+function Thumbprint({ size, opacity = 1 }: { size: number; opacity?: number }) {
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} style={{ opacity }}>
+      <path d="M25 80 Q25 25 50 25 Q75 25 75 50" fill="none" stroke={C.primary} stroke-width="5" stroke-linecap="round"/>
+      <path d="M33 75 Q33 35 50 35 Q67 35 67 52" fill="none" stroke={C.primary} stroke-width="5" stroke-linecap="round"/>
+      <path d="M41 70 Q41 45 50 45 Q59 45 59 55" fill="none" stroke={C.secondary} stroke-width="5" stroke-linecap="round"/>
+      <path d="M50 65 L50 53" fill="none" stroke={C.secondary} stroke-width="5" stroke-linecap="round"/>
+    </svg>
+  )
+}
+
+// Compact card sized for inline embeds (GitHub READMEs, Farcaster, etc.)
+export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffer> {
+  const name = identity.ensName || identity.address || identity.fingerprint || 'Unknown'
+  const subtitle = identity.ensName && identity.address
+    ? `${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`
+    : identity.fingerprint && !identity.ensName
+      ? `${identity.fingerprint.slice(0, 4)} … ${identity.fingerprint.slice(-4)}`
+      : ''
+
+  const seals = identity.activeClaims
+  const proofCount = identity.proofs.length
+  const followers = identity.efp?.followers ?? 0
+
+  let avatarUri: string | null = null
+  if (identity.ensAvatar) avatarUri = await fetchAvatarDataUri(identity.ensAvatar)
+
+  const fonts = await getFonts()
+  const W = 640, H = 200
+
+  const svg = await satori(
+    <div style={{
+      display: 'flex',
+      width: W,
+      height: H,
+      backgroundColor: C.bg,
+      border: `2px solid ${C.border}`,
+      padding: '26px 30px',
+      alignItems: 'center',
+    }}>
+      {avatarUri ? (
+        <img src={avatarUri} width={104} height={104} style={{ borderRadius: 52, border: `3px solid ${C.border}`, marginRight: 26 }} />
+      ) : (
+        <div style={{
+          display: 'flex', width: 104, height: 104, borderRadius: 52,
+          backgroundColor: C.surfaceDeep, border: `3px solid ${C.border}`,
+          alignItems: 'center', justifyContent: 'center', marginRight: 26,
+        }}>
+          <Thumbprint size={76} />
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', justifyContent: 'center' }}>
+        <span style={{ fontSize: identity.ensName ? 38 : 22, fontWeight: 700, color: C.heading }}>{name}</span>
+        {subtitle ? <span style={{ fontSize: 18, color: C.muted, marginTop: 2 }}>{subtitle}</span> : null}
+        <div style={{ display: 'flex', marginTop: 18, gap: 12, alignItems: 'baseline' }}>
+          <StatInline value={seals} label="Seals" />
+          <span style={{ color: C.border, fontSize: 22 }}>·</span>
+          <StatInline value={proofCount} label="Proofs" />
+          <span style={{ color: C.border, fontSize: 22 }}>·</span>
+          <StatInline value={followers} label="Followers" />
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginLeft: 18 }}>
+        <Thumbprint size={60} opacity={0.7} />
+        <span style={{ fontSize: 16, color: C.muted, marginTop: 6 }}>thurin.id</span>
+      </div>
+    </div>,
+    { width: W, height: H, fonts },
+  )
+
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: W } })
+  return Buffer.from(resvg.render().asPng())
+}
+
 export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer> {
   const name = identity.ensName || identity.address || identity.fingerprint || 'Unknown'
 

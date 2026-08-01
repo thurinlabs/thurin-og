@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { resolveByAddress, resolveByEns, resolveByFingerprint } from './resolve'
 import { renderOgHtml } from './html'
-import { renderOgImage } from './image'
+import { renderOgImage, renderCardImage } from './image'
 
 const app = new Hono()
 
@@ -59,6 +59,44 @@ app.get('/og/ens/:name', async (c) => {
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     console.error('OG image error:', err)
+    return c.text(err.message, 500)
+  }
+})
+
+// ─── Card routes (compact PNGs for inline embeds — GitHub READMEs, etc.) ─────
+
+app.get('/card/eth/:address', async (c) => {
+  try {
+    const address = c.req.param('address').replace(/\.png$/, '')
+    const identity = await resolveByAddress(address)
+    const png = await renderCardImage(identity)
+    return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
+  } catch (err: any) {
+    console.error('Card image error:', err)
+    return c.text(err.message, 500)
+  }
+})
+
+app.get('/card/pgp/:fingerprint', async (c) => {
+  try {
+    const fingerprint = c.req.param('fingerprint').replace(/\.png$/, '')
+    const identity = await resolveByFingerprint(fingerprint)
+    const png = await renderCardImage(identity)
+    return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
+  } catch (err: any) {
+    console.error('Card image error:', err)
+    return c.text(err.message, 500)
+  }
+})
+
+app.get('/card/ens/:name', async (c) => {
+  try {
+    const name = c.req.param('name').replace(/\.png$/, '')
+    const identity = await resolveByEns(name)
+    const png = await renderCardImage(identity)
+    return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
+  } catch (err: any) {
+    console.error('Card image error:', err)
     return c.text(err.message, 500)
   }
 })
