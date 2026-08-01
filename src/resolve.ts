@@ -250,7 +250,7 @@ async function buildIdentityFromKey(fingerprint: string): Promise<ResolvedIdenti
   }
 }
 
-function emptyIdentity(): ResolvedIdentity {
+export function emptyIdentity(): ResolvedIdentity {
   return {
     address: null,
     ensName: null,
