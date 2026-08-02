@@ -15,6 +15,7 @@ import {
   type EFPGraph,
 } from '@thurinlabs/identity-kit'
 import { cacheGet, cacheSet } from './cache'
+import { normalizeAvatarUrl } from './safe'
 
 const RPC_URL = process.env.ALCHEMY_RPC_URL || 'https://ethereum-rpc.publicnode.com'
 
@@ -22,6 +23,45 @@ const client = createPublicClient({
   chain: mainnet,
   transport: http(RPC_URL),
 })
+
+const ATTESTED_EVENT = parseAbiItem(
+  'event Attested(address indexed ethAddress, string indexed fingerprintHash, string fingerprint, string pgpSignature, string pgpPublicKey, uint256 index, uint256 timestamp)',
+)
+const LOG_CHUNK_SIZE = 49999n
+const LOGS_TTL = 60 * 60 * 1000 // 1 hour
+
+let logsCache: { logs: any[]; expires: number } | null = null
+let logsInflight: Promise<any[]> | null = null
+
+// Scan the whole registry log history once per TTL and share the result across
+// all fingerprint lookups; concurrent scans collapse into one in-flight promise.
+// This turns an unauthenticated per-request full-chain scan (an amplification
+// DoS) into at most one scan per hour.
+async function getAllAttestedLogs(): Promise<any[]> {
+  if (logsCache && Date.now() < logsCache.expires) return logsCache.logs
+  if (logsInflight) return logsInflight
+  logsInflight = (async () => {
+    const latest = await client.getBlockNumber()
+    const all: any[] = []
+    for (let start = CONTRACT_DEPLOY_BLOCK; start <= latest; start += LOG_CHUNK_SIZE) {
+      const end = start + LOG_CHUNK_SIZE - 1n > latest ? latest : start + LOG_CHUNK_SIZE - 1n
+      const chunk = await client.getLogs({
+        address: REGISTRY_ADDRESS as `0x${string}`,
+        event: ATTESTED_EVENT,
+        fromBlock: start,
+        toBlock: end,
+      })
+      all.push(...chunk)
+    }
+    logsCache = { logs: all, expires: Date.now() + LOGS_TTL }
+    return all
+  })()
+  try {
+    return await logsInflight
+  } finally {
+    logsInflight = null
+  }
+}
 
 export interface ResolvedIdentity {
   address: string | null
@@ -63,7 +103,10 @@ export async function resolveByEns(name: string): Promise<ResolvedIdentity> {
 
   const result = await buildIdentity(address, name)
   cacheSet(cacheKey, result)
-  cacheSet(`addr:${address.toLowerCase()}`, result)
+  // Do NOT populate the addr: cache from an ENS lookup. Forward resolution is
+  // attacker-controlled (anyone can point their ENS name at any address), so
+  // writing it here would let /eth and /card render a spoofed name for that
+  // address for the whole cache TTL.
   return result
 }
 
@@ -83,41 +126,24 @@ export async function resolveByFingerprint(fingerprint: string): Promise<Resolve
   const cached = cacheGet<ResolvedIdentity>(cacheKey)
   if (cached) return cached
 
-  // Find addresses that claimed this fingerprint via event logs
-  const event = parseAbiItem(
-    'event Attested(address indexed ethAddress, string indexed fingerprintHash, string fingerprint, string pgpSignature, string pgpPublicKey, uint256 index, uint256 timestamp)',
-  )
-
-  const LOG_CHUNK_SIZE = 49999n
-  const latest = await client.getBlockNumber()
+  // Filter the shared, cached log set rather than scanning the chain per request.
+  const logs = await getAllAttestedLogs()
   let address: string | null = null
 
-  for (let start = CONTRACT_DEPLOY_BLOCK; start <= latest; start += LOG_CHUNK_SIZE) {
-    const end = start + LOG_CHUNK_SIZE - 1n > latest ? latest : start + LOG_CHUNK_SIZE - 1n
-    const logs = await client.getLogs({
+  for (const log of logs) {
+    if (log.args.fingerprint?.toUpperCase() !== fingerprint.toUpperCase()) continue
+    // Confirm the claim is still active (not revoked) on-chain.
+    const att = await client.readContract({
       address: REGISTRY_ADDRESS as `0x${string}`,
-      event,
-      fromBlock: start,
-      toBlock: end,
-    })
+      abi: REGISTRY_ABI,
+      functionName: 'getAttestation',
+      args: [log.args.ethAddress!, BigInt(Number(log.args.index))],
+    }) as [string, bigint, boolean]
 
-    for (const log of logs) {
-      if (log.args.fingerprint?.toUpperCase() === fingerprint.toUpperCase()) {
-        // Check if not revoked
-        const att = await client.readContract({
-          address: REGISTRY_ADDRESS as `0x${string}`,
-          abi: REGISTRY_ABI,
-          functionName: 'getAttestation',
-          args: [log.args.ethAddress!, BigInt(Number(log.args.index))],
-        }) as [string, bigint, boolean]
-
-        if (!att[2]) {
-          address = log.args.ethAddress!
-          break
-        }
-      }
+    if (!att[2]) {
+      address = log.args.ethAddress!
+      break
     }
-    if (address) break
   }
 
   if (!address) {
@@ -145,7 +171,11 @@ async function buildIdentity(
       ensName = await client.getEnsName({ address: address as `0x${string}` })
     }
     if (ensName) {
-      ensAvatar = await client.getEnsAvatar({ name: normalize(ensName) })
+      // Read the raw avatar record and accept only https/ipfs/data image URLs.
+      // getEnsAvatar would also resolve NFT (eip155) avatars by fetching an
+      // attacker-controlled token URI — an SSRF path we avoid entirely.
+      const avatarRecord = await client.getEnsText({ name: normalize(ensName), key: 'avatar' })
+      ensAvatar = normalizeAvatarUrl(avatarRecord)
     }
   } catch { /* ENS resolution is optional */ }
 
@@ -164,7 +194,10 @@ async function buildIdentity(
 
     totalClaims = Number(count)
 
-    for (let i = totalClaims - 1; i >= 0; i--) {
+    // Cap how many attestations we read so an address that self-attests many
+    // times can't turn one request into an unbounded run of sequential reads.
+    const MAX_SCAN = 50
+    for (let i = totalClaims - 1; i >= 0 && totalClaims - 1 - i < MAX_SCAN; i--) {
       const att = await client.readContract({
         address: REGISTRY_ADDRESS as `0x${string}`,
         abi: REGISTRY_ABI,

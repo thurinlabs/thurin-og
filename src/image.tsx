@@ -1,6 +1,7 @@
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
 import type { ResolvedIdentity } from './resolve'
+import { fetchImageAsDataUri } from './safe'
 
 const C = {
   bg: '#1a1a12',
@@ -18,33 +19,25 @@ const C = {
 let fontRegular: ArrayBuffer | null = null
 let fontBold: ArrayBuffer | null = null
 
+async function fetchFont(url: string): Promise<ArrayBuffer> {
+  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) })
+  if (!resp.ok) throw new Error(`Font fetch failed: ${resp.status}`)
+  return resp.arrayBuffer()
+}
+
 async function getFonts() {
+  // On failure fetchFont throws, leaving the cache null so the next request
+  // retries — a bad CDN response is never cached for the process lifetime.
   if (!fontRegular) {
-    const resp = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf')
-    fontRegular = await resp.arrayBuffer()
+    fontRegular = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf')
   }
   if (!fontBold) {
-    const resp = await fetch('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf')
-    fontBold = await resp.arrayBuffer()
+    fontBold = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf')
   }
   return [
     { name: 'Inter', data: fontRegular, weight: 400 as const, style: 'normal' as const },
     { name: 'Inter', data: fontBold, weight: 700 as const, style: 'normal' as const },
   ]
-}
-
-// Fetch avatar as base64 data URI so satori can render it
-async function fetchAvatarDataUri(url: string): Promise<string | null> {
-  try {
-    const resp = await fetch(url)
-    if (!resp.ok) return null
-    const buf = await resp.arrayBuffer()
-    const contentType = resp.headers.get('content-type') || 'image/png'
-    const base64 = Buffer.from(buf).toString('base64')
-    return `data:${contentType};base64,${base64}`
-  } catch {
-    return null
-  }
 }
 
 function Badge({ label, verified }: { label: string; verified: boolean }) {
@@ -113,7 +106,7 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
   const followers = identity.efp?.followers ?? 0
 
   let avatarUri: string | null = null
-  if (identity.ensAvatar) avatarUri = await fetchAvatarDataUri(identity.ensAvatar)
+  if (identity.ensAvatar) avatarUri = await fetchImageAsDataUri(identity.ensAvatar)
 
   const fonts = await getFonts()
   const W = 640, H = 200
@@ -204,7 +197,7 @@ export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer>
   // Fetch avatar
   let avatarUri: string | null = null
   if (identity.ensAvatar) {
-    avatarUri = await fetchAvatarDataUri(identity.ensAvatar)
+    avatarUri = await fetchImageAsDataUri(identity.ensAvatar)
   }
 
   const fonts = await getFonts()
@@ -273,8 +266,8 @@ export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer>
         <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', maxWidth: 700, justifyContent: 'center' }}>
           {hasVerifiedPgp && <Badge label="PGP Verified" verified={true} />}
           {identity.efp?.hasEfp && <Badge label="EFP" verified={true} />}
-          {identity.proofs.map((p, i) => (
-            <Badge key={i} label={p.label} verified={true} />
+          {identity.proofs.slice(0, 8).map((p, i) => (
+            <Badge key={i} label={p.label.slice(0, 32)} verified={true} />
           ))}
         </div>
 

@@ -7,7 +7,7 @@
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@thurinlabs/identity-kit": "^0.3.0",
+    "@thurinlabs/identity-kit": "^0.7.2",
     "@resvg/resvg-js": "^2.6.0",
     "hono": "^4.0.0",
     "satori": "^0.12.0",

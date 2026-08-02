@@ -2,13 +2,22 @@ import { Hono } from 'hono'
 import { resolveByAddress, resolveByEns, resolveByFingerprint, emptyIdentity, type ResolvedIdentity } from './resolve'
 import { renderOgHtml, renderSiteOgHtml } from './html'
 import { renderOgImage, renderCardImage, renderSiteImage } from './image'
+import { isValidAddress, isValidFingerprint, isValidEnsName } from './safe'
 
 const app = new Hono()
 
+const RPC_URL = process.env.ALCHEMY_RPC_URL || ''
+
 // viem attaches the full RPC URL — API key included — to error messages and
-// stacks, so raw errors must never reach the journal.
+// stacks, so raw errors must never reach the journal. Redact the configured
+// URL literally, then common provider key-URL shapes as a fallback.
 function redactKeys(s: string): string {
-  return s.replace(/\/v2\/[A-Za-z0-9_-]+/g, '/v2/***')
+  let out = s
+  if (RPC_URL) out = out.split(RPC_URL).join('[redacted-rpc]')
+  return out
+    .replace(/\/v2\/[A-Za-z0-9_-]+/g, '/v2/***')
+    .replace(/\/v3\/[A-Za-z0-9_-]+/g, '/v3/***')
+    .replace(/([?&](?:apikey|api_key|auth|key|token)=)[^&\s]+/gi, '$1***')
 }
 
 function logError(prefix: string, err: any): void {
@@ -44,6 +53,7 @@ app.get('/og/site.png', async (c) => {
 
 app.get('/eth/:address', async (c) => {
   const address = c.req.param('address')
+  if (!isValidAddress(address)) return c.html(renderSiteOgHtml(`/eth/${address}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByAddress(address)
@@ -56,6 +66,7 @@ app.get('/eth/:address', async (c) => {
 
 app.get('/pgp/:fingerprint', async (c) => {
   const fingerprint = c.req.param('fingerprint')
+  if (!isValidFingerprint(fingerprint)) return c.html(renderSiteOgHtml(`/pgp/${fingerprint}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByFingerprint(fingerprint)
@@ -68,6 +79,7 @@ app.get('/pgp/:fingerprint', async (c) => {
 
 app.get('/ens/:name', async (c) => {
   const name = c.req.param('name')
+  if (!isValidEnsName(name)) return c.html(renderSiteOgHtml(`/ens/${name}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByEns(name)
@@ -83,6 +95,7 @@ app.get('/ens/:name', async (c) => {
 app.get('/og/eth/:address', async (c) => {
   try {
     const address = c.req.param('address').replace(/\.png$/, '')
+    if (!isValidAddress(address)) return c.text('Not Found', 404)
     const identity = await resolveByAddress(address)
     const png = await renderOgImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -95,6 +108,7 @@ app.get('/og/eth/:address', async (c) => {
 app.get('/og/pgp/:fingerprint', async (c) => {
   try {
     const fingerprint = c.req.param('fingerprint').replace(/\.png$/, '')
+    if (!isValidFingerprint(fingerprint)) return c.text('Not Found', 404)
     const identity = await resolveByFingerprint(fingerprint)
     const png = await renderOgImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -107,6 +121,7 @@ app.get('/og/pgp/:fingerprint', async (c) => {
 app.get('/og/ens/:name', async (c) => {
   try {
     const name = c.req.param('name').replace(/\.png$/, '')
+    if (!isValidEnsName(name)) return c.text('Not Found', 404)
     const identity = await resolveByEns(name)
     const png = await renderOgImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -121,6 +136,7 @@ app.get('/og/ens/:name', async (c) => {
 app.get('/card/eth/:address', async (c) => {
   try {
     const address = c.req.param('address').replace(/\.png$/, '')
+    if (!isValidAddress(address)) return c.text('Not Found', 404)
     const identity = await resolveByAddress(address)
     const png = await renderCardImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -133,6 +149,7 @@ app.get('/card/eth/:address', async (c) => {
 app.get('/card/pgp/:fingerprint', async (c) => {
   try {
     const fingerprint = c.req.param('fingerprint').replace(/\.png$/, '')
+    if (!isValidFingerprint(fingerprint)) return c.text('Not Found', 404)
     const identity = await resolveByFingerprint(fingerprint)
     const png = await renderCardImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -145,6 +162,7 @@ app.get('/card/pgp/:fingerprint', async (c) => {
 app.get('/card/ens/:name', async (c) => {
   try {
     const name = c.req.param('name').replace(/\.png$/, '')
+    if (!isValidEnsName(name)) return c.text('Not Found', 404)
     const identity = await resolveByEns(name)
     const png = await renderCardImage(identity)
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
@@ -180,5 +198,8 @@ console.log(`scry-og listening on :${port}`)
 
 export default {
   port,
+  // Bind loopback by default — the service sits behind nginx, so it should not
+  // be reachable directly. Override with HOST if a different bind is needed.
+  hostname: process.env.HOST || '127.0.0.1',
   fetch: app.fetch,
 }
