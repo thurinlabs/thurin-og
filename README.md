@@ -43,6 +43,17 @@ GET /og/ens/:name.png
 
 Returns a 1200x630 PNG share card generated on the fly.
 
+### Card images (compact PNGs for inline embeds)
+
+```
+GET /card/eth/:address.png
+GET /card/pgp/:fingerprint.png
+GET /card/ens/:name.png
+```
+
+Returns a compact 640x200 PNG card for inline use — GitHub READMEs, forum posts,
+emails. The trailing `.png` is optional. Same live data as the `/og/` cards.
+
 ### Health
 
 ```
@@ -58,7 +69,9 @@ All data is fetched live using [`@thurinlabs/identity-kit`](https://www.npmjs.co
 - **EFP API** — follower/following counts
 - **ENS** — name resolution and avatar (via viem)
 
-Responses are cached in memory for 5 minutes.
+Responses are cached in memory (bounded LRU) for 1 hour. Path params are validated at
+the route boundary, and avatar fetches are SSRF-guarded: https-only, private/link-local
+IPs rejected, size- and timeout-capped, and content-type sniffed from magic bytes.
 
 ## Setup
 
@@ -72,7 +85,8 @@ bun install
 
 ```
 PORT=3333                    # default
-ALCHEMY_RPC_URL=https://...  # optional, falls back to publicnode
+HOST=127.0.0.1               # default — binds loopback (it sits behind nginx)
+ALCHEMY_RPC_URL=https://...  # recommended: supports eth_getLogs (the publicnode fallback throttles it)
 ```
 
 ### Run
@@ -84,11 +98,14 @@ bun run start   # production
 
 ## Deployment
 
-Runs on the VPS as a systemd service behind nginx. Deploy via:
+Runs on the VPS as a systemd service behind nginx (not part of the IPFS `deploy.sh`
+flow). Deploy by pulling and restarting on the VPS:
 
 ```bash
-./deploy.sh scry-og
+ssh <vps> "cd /opt/scry-og && git pull && ~/.bun/bin/bun install && sudo systemctl restart scry-og"
 ```
+
+Rate limiting for `/og/` and `/card/` is best handled in the nginx config (`limit_req`).
 
 ## Stack
 
@@ -103,4 +120,5 @@ Runs on the VPS as a systemd service behind nginx. Deploy via:
 
 - [Scry](https://thurin.id)
 - [Documentation](https://docs.thurin.id)
-- [Codeberg](https://codeberg.org/thurinlabs)
+- [GitHub](https://github.com/thurinlabs)
+- [Codeberg](https://codeberg.org/thurinlabs) (mirror)
