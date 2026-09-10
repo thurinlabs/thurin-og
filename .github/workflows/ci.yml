@@ -4,7 +4,7 @@ on:
   push:
   pull_request:
 
-# scry-og is a Bun service with no test suite; CI verifies the lockfile is
+# thurin-og is a Bun service with no test suite; CI verifies the lockfile is
 # valid and the entry point bundles cleanly (catches import/syntax breakage).
 jobs:
   build:
@@ -14,4 +14,4 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - name: Build smoke test
-        run: bun build ./src/index.ts --target bun --outdir /tmp/scry-og-build
+        run: bun build ./src/index.ts --target bun --outdir /tmp/thurin-og-build

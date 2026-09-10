@@ -194,7 +194,7 @@ app.notFound((c) => {
 // ─── Start ───────────────────────────────────────────────────────────────────
 
 const port = parseInt(process.env.PORT || '3333')
-console.log(`scry-og listening on :${port}`)
+console.log(`thurin-og listening on :${port}`)
 
 export default {
   port,

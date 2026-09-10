@@ -1,6 +1,6 @@
 {
-  "name": "scry-og",
-  "version": "0.1.0",
+  "name": "thurin-og",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",

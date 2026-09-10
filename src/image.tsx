@@ -74,9 +74,9 @@ function Stat({ value, label }: { value: number; label: string }) {
 
 function StatInline({ value, label }: { value: number; label: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
       <span style={{ fontSize: 30, fontWeight: 700, color: C.heading }}>{value}</span>
-      <span style={{ fontSize: 15, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.5 }}>{label}</span>
+      <span style={{ fontSize: 13, color: C.muted, textTransform: 'uppercase', letterSpacing: 0.3 }}>{label}</span>
     </div>
   )
 }
@@ -101,7 +101,7 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
       ? `${identity.fingerprint.slice(0, 4)} … ${identity.fingerprint.slice(-4)}`
       : ''
 
-  const seals = identity.activeClaims
+  const attestations = identity.activeClaims
   const proofCount = identity.proofs.length
   const followers = identity.efp?.followers ?? 0
 
@@ -133,11 +133,11 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
         </div>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: '100%', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden', height: '100%', justifyContent: 'center' }}>
         <span style={{ fontSize: identity.ensName ? 38 : 22, fontWeight: 700, color: C.heading }}>{name}</span>
         {subtitle ? <span style={{ fontSize: 18, color: C.muted, marginTop: 2 }}>{subtitle}</span> : null}
-        <div style={{ display: 'flex', marginTop: 18, gap: 12, alignItems: 'baseline' }}>
-          <StatInline value={seals} label="Seals" />
+        <div style={{ display: 'flex', marginTop: 18, gap: 10, alignItems: 'baseline' }}>
+          <StatInline value={attestations} label="Attestations" />
           <span style={{ color: C.border, fontSize: 22 }}>·</span>
           <StatInline value={proofCount} label="Proofs" />
           <span style={{ color: C.border, fontSize: 22 }}>·</span>
@@ -157,7 +157,7 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
   return Buffer.from(resvg.render().asPng())
 }
 
-// Generic site card for non-identity pages (/, /signet, unmatched paths)
+// Generic site card for non-identity pages (/, /attest, unmatched paths)
 export async function renderSiteImage(): Promise<Buffer> {
   const fonts = await getFonts()
 
@@ -257,7 +257,7 @@ export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer>
 
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 20, marginBottom: 48, justifyContent: 'center' }}>
-          <Stat value={identity.activeClaims} label="Seals" />
+          <Stat value={identity.activeClaims} label="Attestations" />
           <Stat value={proofCount} label="Proofs" />
           <Stat value={followers} label="Followers" />
         </div>

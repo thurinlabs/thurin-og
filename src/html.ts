@@ -12,7 +12,7 @@ export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
         : 'Thurin — Identity Explorer'
 
   const parts: string[] = []
-  if (identity.activeClaims > 0) parts.push(`${identity.activeClaims} seal${identity.activeClaims !== 1 ? 's' : ''}`)
+  if (identity.activeClaims > 0) parts.push(`${identity.activeClaims} attestation${identity.activeClaims !== 1 ? 's' : ''}`)
   if (identity.proofs.length > 0) parts.push(`${identity.proofs.length} proof${identity.proofs.length !== 1 ? 's' : ''}`)
   if (identity.efp?.followers) parts.push(`${identity.efp.followers} followers`)
   const description = parts.length > 0
@@ -49,14 +49,14 @@ ${relMeLinks}
 </html>`
 }
 
-// Generic site card for non-identity pages: /, /signet, and any unmatched path.
+// Generic site card for non-identity pages: /, /attest, and any unmatched path.
 export function renderSiteOgHtml(path: string): string {
   const normalized = path.replace(/\/+$/, '') || '/'
-  const title = normalized === '/signet'
-    ? 'Signet — Thurin'
+  const title = normalized === '/attest'
+    ? 'Thurin — Attest'
     : 'Thurin — Identity Explorer'
   const description =
-    'Explore and verify the Thurin identity graph. Look up Ethereum addresses, ENS names, and GPG fingerprints.'
+    'Explore and verify the Thurin identity graph. Look up Ethereum addresses, ENS names, and PGP fingerprints.'
 
   const canonicalUrl = `${THURIN_BASE}${path === '/' ? '/' : path}`
   const imageUrl = `${THURIN_BASE}/og/site.png`

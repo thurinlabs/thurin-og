@@ -1,24 +1,24 @@
-# scry-og
+# thurin-og
 
-Open Graph metadata and share card service for [Scry](https://thurin.id). Generates per-identity OG tags, share card images, and `rel="me"` links for social crawlers.
+Open Graph metadata and share card service for [thurin.id](https://thurin.id). Generates per-identity OG tags, share card images, and `rel="me"` links for social crawlers.
 
-A [Thurin Labs](https://thurin.id) project.
+A [Thurin Labs](https://thurinlabs.id) project.
 
 ## What it does
 
-When Twitter, Farcaster, Mastodon, or any other platform crawls a Scry link, this service returns:
+When Twitter, Farcaster, Mastodon, or any other platform crawls a thurin.id link, this service returns:
 
 - **OG meta tags** — per-identity title, description, and image for rich link previews
-- **Share card images** — dynamically generated PNG cards showing ENS name, avatar, seal count, proofs, EFP followers, and provider badges
+- **Share card images** — dynamically generated PNG cards showing ENS name, avatar, attestation count, proofs, EFP followers, and provider badges
 - **`rel="me"` links** — enables Mastodon profile verification for users with Mastodon proof notations in their PGP key
 
 ## How it works
 
-nginx sits in front of Scry's IPFS deployment. It detects crawler User-Agents and proxies those requests to scry-og instead of IPFS. Real browsers get the Scry SPA from IPFS as usual.
+nginx sits in front of thurin.id's IPFS deployment. It detects crawler User-Agents and proxies those requests to thurin-og instead of IPFS. Real browsers get the SPA from IPFS as usual.
 
 ```
-Browser  → nginx → IPFS (Scry SPA)
-Crawler  → nginx → scry-og (OG tags + image)
+Browser  → nginx → IPFS (thurin.id SPA)
+Crawler  → nginx → thurin-og (OG tags + image)
 ```
 
 ## Routes
@@ -31,7 +31,7 @@ GET /pgp/:fingerprint
 GET /ens/:name
 ```
 
-Returns minimal HTML with `og:title`, `og:description`, `og:image`, `twitter:card`, and `link rel="me"` tags. Redirects real browsers to Scry.
+Returns minimal HTML with `og:title`, `og:description`, `og:image`, `twitter:card`, and `link rel="me"` tags. Redirects real browsers to thurin.id.
 
 ### Images (share card PNGs)
 
@@ -102,7 +102,7 @@ Runs on the VPS as a systemd service behind nginx (not part of the IPFS `deploy.
 flow). Deploy by pulling and restarting on the VPS:
 
 ```bash
-ssh <vps> "cd /opt/scry-og && git pull && ~/.bun/bin/bun install && sudo systemctl restart scry-og"
+ssh <vps> "cd /opt/thurin-og && git pull && ~/.bun/bin/bun install && sudo systemctl restart thurin-og"
 ```
 
 Rate limiting for `/og/` and `/card/` is best handled in the nginx config (`limit_req`).
@@ -118,7 +118,7 @@ Rate limiting for `/og/` and `/card/` is best handled in the nginx config (`limi
 
 ## Links
 
-- [Scry](https://thurin.id)
+- [Thurin](https://thurin.id)
 - [Documentation](https://docs.thurin.id)
 - [GitHub](https://github.com/thurinlabs)
 - [Codeberg](https://codeberg.org/thurinlabs) (mirror)
