@@ -4,12 +4,12 @@ const THURIN_BASE = 'https://thurin.id'
 
 export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
   const title = identity.ensName
-    ? `${identity.ensName} — Thurin`
+    ? `${identity.ensName} — Thurin.id`
     : identity.address
-      ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Thurin`
+      ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Thurin.id`
       : identity.fingerprint
-        ? `${identity.fingerprint.slice(0, 8)}... — Thurin`
-        : 'Thurin — Identity Explorer'
+        ? `${identity.fingerprint.slice(0, 8)}... — Thurin.id`
+        : 'Thurin.id — Identity Explorer'
 
   const parts: string[] = []
   if (identity.activeClaims > 0) parts.push(`${identity.activeClaims} attestation${identity.activeClaims !== 1 ? 's' : ''}`)
@@ -53,8 +53,8 @@ ${relMeLinks}
 export function renderSiteOgHtml(path: string): string {
   const normalized = path.replace(/\/+$/, '') || '/'
   const title = normalized === '/attest'
-    ? 'Thurin — Attest'
-    : 'Thurin — Identity Explorer'
+    ? 'Thurin.id — Attest'
+    : 'Thurin.id — Identity Explorer'
   const description =
     'Explore and verify the Thurin identity graph. Look up Ethereum addresses, ENS names, and PGP fingerprints.'
 
