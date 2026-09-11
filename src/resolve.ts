@@ -1,13 +1,16 @@
-import { createPublicClient, http, parseAbiItem } from 'viem'
-import { mainnet } from 'viem/chains'
+import { createPublicClient, http, hexToString, keccak256 } from 'viem'
+import { mainnet, sepolia, foundry } from 'viem/chains'
 import { normalize } from 'viem/ens'
 import {
-  REGISTRY_ADDRESS,
   REGISTRY_ABI,
-  CONTRACT_DEPLOY_BLOCK,
-  fetchKeyByFingerprint,
-  fetchKeyByKeyId,
+  getRegistry,
+  isNetworkName,
+  bytesToFingerprint,
+  fingerprintToBytes,
+  keyIdToBytes,
+  normalizeFingerprint,
   parsePgpKey,
+  verifyAttestation,
   identifyProof,
   fetchEFPGraph,
   type PGPKeyInfo,
@@ -17,51 +20,24 @@ import {
 import { cacheGet, cacheSet } from './cache'
 import { normalizeAvatarUrl } from './safe'
 
-const RPC_URL = process.env.ALCHEMY_RPC_URL || 'https://ethereum-rpc.publicnode.com'
+// NETWORK=mainnet (default) | sepolia | local. The v2 registry has the same address on
+// every network; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
+// works — ALCHEMY_RPC_URL is optional now.
+const NETWORK = isNetworkName(process.env.NETWORK) ? process.env.NETWORK : 'mainnet'
+const REGISTRY = getRegistry(NETWORK, process.env.REGISTRY_ADDRESS)
+const CHAIN = NETWORK === 'sepolia' ? sepolia : NETWORK === 'local' ? foundry : mainnet
+const RPC_URL = process.env.ALCHEMY_RPC_URL || process.env.RPC_URL || REGISTRY.defaultRpcUrl
 
 const client = createPublicClient({
-  chain: mainnet,
+  chain: CHAIN,
   transport: http(RPC_URL),
 })
 
-const ATTESTED_EVENT = parseAbiItem(
-  'event Attested(address indexed ethAddress, string indexed fingerprintHash, string fingerprint, string pgpSignature, string pgpPublicKey, uint256 index, uint256 timestamp)',
-)
-const LOG_CHUNK_SIZE = 49999n
-const LOGS_TTL = 60 * 60 * 1000 // 1 hour
+const registry = { address: REGISTRY.address, abi: REGISTRY_ABI } as const
 
-let logsCache: { logs: any[]; expires: number } | null = null
-let logsInflight: Promise<any[]> | null = null
-
-// Scan the whole registry log history once per TTL and share the result across
-// all fingerprint lookups; concurrent scans collapse into one in-flight promise.
-// This turns an unauthenticated per-request full-chain scan (an amplification
-// DoS) into at most one scan per hour.
-async function getAllAttestedLogs(): Promise<any[]> {
-  if (logsCache && Date.now() < logsCache.expires) return logsCache.logs
-  if (logsInflight) return logsInflight
-  logsInflight = (async () => {
-    const latest = await client.getBlockNumber()
-    const all: any[] = []
-    for (let start = CONTRACT_DEPLOY_BLOCK; start <= latest; start += LOG_CHUNK_SIZE) {
-      const end = start + LOG_CHUNK_SIZE - 1n > latest ? latest : start + LOG_CHUNK_SIZE - 1n
-      const chunk = await client.getLogs({
-        address: REGISTRY_ADDRESS as `0x${string}`,
-        event: ATTESTED_EVENT,
-        fromBlock: start,
-        toBlock: end,
-      })
-      all.push(...chunk)
-    }
-    logsCache = { logs: all, expires: Date.now() + LOGS_TTL }
-    return all
-  })()
-  try {
-    return await logsInflight
-  } finally {
-    logsInflight = null
-  }
-}
+// Cap how many claims we verify per address so an address that self-attests many
+// times can't turn one request into an unbounded run of signature checks.
+const MAX_VERIFY = 50
 
 export interface ResolvedIdentity {
   address: string | null
@@ -111,49 +87,47 @@ export async function resolveByEns(name: string): Promise<ResolvedIdentity> {
 }
 
 export async function resolveByFingerprint(fingerprint: string): Promise<ResolvedIdentity> {
-  // If it's a 16-char key ID, resolve to full fingerprint via keyserver
+  // A 16-char key ID resolves to a fingerprint through the registry's own index.
   if (/^[0-9a-fA-F]{16}$/.test(fingerprint)) {
-    const armoredKey = await fetchKeyByKeyId(fingerprint)
-    if (armoredKey) {
-      const keyInfo = await parsePgpKey(armoredKey)
-      if (keyInfo) {
-        fingerprint = keyInfo.fingerprint
-      }
+    const keyId = keyIdToBytes(fingerprint)
+    if (!keyId) return emptyIdentity()
+    try {
+      const fps = await client.readContract({ ...registry, functionName: 'fingerprintsForKeyId', args: [keyId] })
+      if (fps.length === 0) return emptyIdentity()
+      fingerprint = bytesToFingerprint(fps[0])
+    } catch {
+      return emptyIdentity()
     }
   }
 
-  const cacheKey = `fpr:${fingerprint.toLowerCase()}`
+  const fp = normalizeFingerprint(fingerprint)
+  if (!fp) return emptyIdentity()
+
+  const cacheKey = `fpr:${fp}`
   const cached = cacheGet<ResolvedIdentity>(cacheKey)
   if (cached) return cached
 
-  // Filter the shared, cached log set rather than scanning the chain per request.
-  const logs = await getAllAttestedLogs()
+  // Every owner that ever attested this fingerprint; pick the first with an active claim for it.
   let address: string | null = null
-
-  for (const log of logs) {
-    if (log.args.fingerprint?.toUpperCase() !== fingerprint.toUpperCase()) continue
-    // Confirm the claim is still active (not revoked) on-chain.
-    const att = await client.readContract({
-      address: REGISTRY_ADDRESS as `0x${string}`,
-      abi: REGISTRY_ABI,
-      functionName: 'getAttestation',
-      args: [log.args.ethAddress!, BigInt(Number(log.args.index))],
-    }) as [string, bigint, boolean]
-
-    if (!att[2]) {
-      address = log.args.ethAddress!
-      break
+  try {
+    const owners = await client.readContract({
+      ...registry,
+      functionName: 'addressesFor',
+      args: [keccak256(fingerprintToBytes(fp))],
+    })
+    for (const owner of owners) {
+      const rows = await client.readContract({ ...registry, functionName: 'attestationsOf', args: [owner] })
+      if (rows.some((r) => Number(r.revokedAt) === 0 && bytesToFingerprint(r.fingerprint) === fp)) {
+        address = owner
+        break
+      }
     }
-  }
+  } catch { /* registry read optional */ }
 
-  if (!address) {
-    // No on-chain claim, but try to fetch key from keyserver anyway
-    const result = await buildIdentityFromKey(fingerprint)
-    cacheSet(cacheKey, result)
-    return result
-  }
-
-  const result = await buildIdentity(address, undefined, fingerprint)
+  // No active claim anywhere: nothing to show beyond the fingerprint itself.
+  const result = address
+    ? await buildIdentity(address, undefined, fp)
+    : { ...emptyIdentity(), fingerprint: fp.toUpperCase() }
   cacheSet(cacheKey, result)
   return result
 }
@@ -179,57 +153,58 @@ async function buildIdentity(
     }
   } catch { /* ENS resolution is optional */ }
 
-  // Fetch attestation count
+  // Claims: the full history in one call, then the stored key of the current claim.
+  // "Current" = the latest active claim whose stored signature verifies for this
+  // address (the same rule identity-kit uses), optionally pinned to a fingerprint.
   let totalClaims = 0
   let activeClaims = 0
-  let fingerprint = fingerprintHint || null
+  let fingerprint: string | null = null
+  let armoredKey: string | null = null
+  const wanted = fingerprintHint ? normalizeFingerprint(fingerprintHint) : null
 
   try {
-    const count = await client.readContract({
-      address: REGISTRY_ADDRESS as `0x${string}`,
-      abi: REGISTRY_ABI,
-      functionName: 'attestationCount',
-      args: [address as `0x${string}`],
-    }) as bigint
+    const rows = await client.readContract({ ...registry, functionName: 'attestationsOf', args: [address as `0x${string}`] })
+    totalClaims = rows.length
+    activeClaims = rows.filter((r) => Number(r.revokedAt) === 0).length
 
-    totalClaims = Number(count)
-
-    // Cap how many attestations we read so an address that self-attests many
-    // times can't turn one request into an unbounded run of sequential reads.
-    const MAX_SCAN = 50
-    for (let i = totalClaims - 1; i >= 0 && totalClaims - 1 - i < MAX_SCAN; i--) {
-      const att = await client.readContract({
-        address: REGISTRY_ADDRESS as `0x${string}`,
-        abi: REGISTRY_ABI,
-        functionName: 'getAttestation',
+    let checked = 0
+    for (let i = rows.length - 1; i >= 0 && checked < MAX_VERIFY; i--) {
+      const row = rows[i]
+      if (Number(row.revokedAt) !== 0) continue
+      const fp = bytesToFingerprint(row.fingerprint)
+      if (wanted && fp !== wanted) continue
+      checked++
+      const [sigHex, keyHex] = await client.readContract({
+        ...registry,
+        functionName: 'getPayload',
         args: [address as `0x${string}`, BigInt(i)],
-      }) as [string, bigint, boolean]
-
-      if (!att[2]) {
-        activeClaims++
-        if (!fingerprint) fingerprint = att[0].toUpperCase()
+      })
+      const pgpSignature = hexToString(sigHex)
+      const pgpPublicKey = hexToString(keyHex)
+      const v = await verifyAttestation({ pgpPublicKey, pgpSignature, fingerprint: fp, ethAddress: address })
+      if (v.verified) {
+        fingerprint = fp.toUpperCase()
+        armoredKey = pgpPublicKey
+        break
       }
     }
   } catch { /* contract read optional */ }
 
-  // Fetch PGP key + proofs
+  // PGP key + proofs come from the on-chain key. No keyserver.
   let pgpKeyInfo: PGPKeyInfo | null = null
   let proofs: Proof[] = []
   let mastodonUrls: string[] = []
 
-  if (fingerprint) {
-    const armoredKey = await fetchKeyByFingerprint(fingerprint)
-    if (armoredKey) {
-      pgpKeyInfo = await parsePgpKey(armoredKey)
-      if (pgpKeyInfo) {
-        proofs = pgpKeyInfo.notations
-          .map((n) => identifyProof(n))
-          .filter((p): p is Proof => p !== null)
+  if (armoredKey) {
+    pgpKeyInfo = await parsePgpKey(armoredKey)
+    if (pgpKeyInfo) {
+      proofs = pgpKeyInfo.notations
+        .map((n) => identifyProof(n))
+        .filter((p): p is Proof => p !== null)
 
-        mastodonUrls = proofs
-          .filter((p) => p.provider === 'mastodon')
-          .map((p) => `https://${p.instance}/@${p.user}`)
-      }
+      mastodonUrls = proofs
+        .filter((p) => p.provider === 'mastodon')
+        .map((p) => `https://${p.instance}/@${p.user}`)
     }
   }
 
@@ -247,39 +222,6 @@ async function buildIdentity(
     proofs,
     mastodonUrls,
     efp,
-  }
-}
-
-async function buildIdentityFromKey(fingerprint: string): Promise<ResolvedIdentity> {
-  let pgpKeyInfo: PGPKeyInfo | null = null
-  let proofs: Proof[] = []
-  let mastodonUrls: string[] = []
-
-  const armoredKey = await fetchKeyByFingerprint(fingerprint)
-  if (armoredKey) {
-    pgpKeyInfo = await parsePgpKey(armoredKey)
-    if (pgpKeyInfo) {
-      proofs = pgpKeyInfo.notations
-        .map((n) => identifyProof(n))
-        .filter((p): p is Proof => p !== null)
-
-      mastodonUrls = proofs
-        .filter((p) => p.provider === 'mastodon')
-        .map((p) => `https://${p.instance}/@${p.user}`)
-    }
-  }
-
-  return {
-    address: null,
-    ensName: null,
-    ensAvatar: null,
-    fingerprint,
-    activeClaims: 0,
-    totalClaims: 0,
-    pgpKeyInfo,
-    proofs,
-    mastodonUrls,
-    efp: null,
   }
 }
 

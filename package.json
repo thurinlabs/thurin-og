@@ -1,13 +1,13 @@
 {
   "name": "thurin-og",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "type": "module",
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts"
   },
   "dependencies": {
-    "@thurinlabs/identity-kit": "^0.7.2",
+    "@thurinlabs/identity-kit": "^1.0.0",
     "@resvg/resvg-js": "^2.6.0",
     "hono": "^4.0.0",
     "satori": "^0.12.0",
