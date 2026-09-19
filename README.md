@@ -118,6 +118,10 @@ Rate limiting for `/og/` and `/card/` is best handled in the nginx config (`limi
 - [viem](https://viem.sh) — Ethereum RPC
 - [@thurinlabs/identity-kit](https://www.npmjs.com/package/@thurinlabs/identity-kit) — identity data
 
+## License
+
+MIT
+
 ## Links
 
 - [Thurin](https://thurin.id)
