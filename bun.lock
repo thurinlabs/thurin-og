@@ -6,7 +6,7 @@
       "name": "scry-og",
       "dependencies": {
         "@resvg/resvg-js": "^2.6.0",
-        "@thurinlabs/identity-kit": "^0.7.2",
+        "@thurinlabs/identity-kit": "^1.0.2",
         "hono": "^4.0.0",
         "satori": "^0.12.0",
         "viem": "^2.21.0",
@@ -60,7 +60,7 @@
 
     "@tanstack/react-query": ["@tanstack/react-query@5.99.0", "", { "dependencies": { "@tanstack/query-core": "5.99.0" }, "peerDependencies": { "react": "^18 || ^19" } }, "sha512-OY2bCqPemT1LlqJ8Y2CUau4KELnIhhG9Ol3ZndPbdnB095pRbPo1cHuXTndg8iIwtoHTgwZjyaDnQ0xD0mYwAw=="],
 
-    "@thurinlabs/identity-kit": ["@thurinlabs/identity-kit@0.7.2", "", { "dependencies": { "openpgp": "^6.3.0" }, "peerDependencies": { "@tanstack/react-query": ">=5", "react": ">=18", "react-dom": ">=18", "viem": ">=2", "wagmi": ">=2" } }, "sha512-ScI9Gn3S4L9HdoGvFzkGwTDo9iP+BJ4OLc/EKxyO9Rq+wleRxpG2gHQZU5hYHAt1pV4oMfR7TrNxKf6a+wqllA=="],
+    "@thurinlabs/identity-kit": ["@thurinlabs/identity-kit@1.0.2", "", { "dependencies": { "eckey-utils": "^0.7.14", "openpgp": "^6.3.0" }, "peerDependencies": { "@tanstack/react-query": ">=5", "react": ">=18", "react-dom": ">=18", "viem": ">=2", "wagmi": ">=2" } }, "sha512-gxPSLSR3lhGDP0HstNT4UxA/zHXvlZyIFBhUpZlFltFj9OtoRuKiLGSciHmoJwiMqIEZGaqBm8bppp4S487n7A=="],
 
     "@wagmi/connectors": ["@wagmi/connectors@8.0.2", "", { "peerDependencies": { "@base-org/account": "^2.5.1", "@coinbase/wallet-sdk": "^4.3.6", "@metamask/connect-evm": "~0.9.0", "@safe-global/safe-apps-provider": "~0.18.6", "@safe-global/safe-apps-sdk": "^9.1.0", "@wagmi/core": "3.4.3", "@walletconnect/ethereum-provider": "^2.21.1", "accounts": "0.6.7", "porto": "~0.2.35", "typescript": ">=5.7.3", "viem": "2.x" }, "optionalPeers": ["@base-org/account", "@coinbase/wallet-sdk", "@metamask/connect-evm", "@safe-global/safe-apps-provider", "@safe-global/safe-apps-sdk", "@walletconnect/ethereum-provider", "accounts", "porto", "typescript"] }, "sha512-ckPlMz6090T359nTxzlkFuXRec1mvOTZAzzSQHmWbc+FM1znOb1S9V7QRRRsrO3diCEbgxtw7GUNNvWQkej4/Q=="],
 
@@ -83,6 +83,8 @@
     "css-gradient-parser": ["css-gradient-parser@0.0.16", "", {}, "sha512-3O5QdqgFRUbXvK1x5INf1YkBz1UKSWqrd63vWsum8MNHDBYD5urm3QtxZbKU259OrEXNM26lP/MPY3d1IGkBgA=="],
 
     "css-to-react-native": ["css-to-react-native@3.2.0", "", { "dependencies": { "camelize": "^1.0.0", "css-color-keywords": "^1.0.0", "postcss-value-parser": "^4.0.2" } }, "sha512-e8RKaLXMOFii+02mOlqwjbD00KSEKqblnpO9e++1aXS1fPQOpS1YoqdVHBqPjHNoxeF2mimzVqawm2KCbEdtHQ=="],
+
+    "eckey-utils": ["eckey-utils@0.7.14", "", {}, "sha512-s/mENS+mMnJjDSydy0muBQQHMTWJ1nPe8EiphANZrf+lv/1u35aP9WvWHTWqCBJ21blNIurGF7UoLjtaOpoCFw=="],
 
     "emoji-regex": ["emoji-regex@10.6.0", "", {}, "sha512-toUI84YS5YmxW219erniWD0CIVOo46xGKColeNQRgOzDorgBi1v4D71/OFzgD9GO2UGKIv1C3Sp8DAn0+j5w7A=="],
 
