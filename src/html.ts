@@ -2,7 +2,7 @@ import type { ResolvedIdentity } from './resolve'
 
 const THURIN_BASE = 'https://thurin.id'
 
-export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
+export function renderOgHtml(identity: ResolvedIdentity, path: string, imagePath: string = path): string {
   const title = identity.ensName
     ? `${identity.ensName} — Thurin.id`
     : identity.address
@@ -20,7 +20,7 @@ export function renderOgHtml(identity: ResolvedIdentity, path: string): string {
     : 'Look up any Ethereum identity on Thurin'
 
   const canonicalUrl = `${THURIN_BASE}${path}`
-  const imageUrl = `${THURIN_BASE}/og${path}.png`
+  const imageUrl = `${THURIN_BASE}/og${imagePath}.png`   // the card is keyed by the base path; a tab URL shares it
 
   const relMeLinks = identity.mastodonUrls
     .map((url) => `  <link rel="me" href="${escapeHtml(url)}" />`)

@@ -51,9 +51,20 @@ app.get('/og/site.png', async (c) => {
 // A crawler that gets a 500 shows no preview at all, so RPC failures degrade to
 // a sparse card seeded with the requested identifier.
 
-app.get('/eth/:address', async (c) => {
+// Identity pages have tabs as routes (/ens/<name>/claims, /records, /encrypt). A shared tab URL
+// gets the same identity card as the overview: the image is keyed by the base path, the
+// canonical URL keeps the tab. Anything else after the identifier is not an identity page.
+const TABS = new Set(['claims', 'records', 'encrypt'])
+function tabOf(c: { req: { param: (k: string) => string | undefined } }): string | null {
+  const tab = c.req.param('tab')
+  if (tab === undefined || tab === '') return ''
+  return TABS.has(tab) ? `/${tab}` : null
+}
+
+app.get('/eth/:address/:tab?', async (c) => {
   const address = c.req.param('address')
-  if (!isValidAddress(address)) return c.html(renderSiteOgHtml(`/eth/${address}`))
+  const tab = tabOf(c)
+  if (!isValidAddress(address) || tab === null) return c.html(renderSiteOgHtml(`/eth/${address}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByAddress(address)
@@ -61,12 +72,13 @@ app.get('/eth/:address', async (c) => {
     logError('Resolve error (/eth):', err)
     identity = { ...emptyIdentity(), address }
   }
-  return c.html(renderOgHtml(identity, `/eth/${address}`))
+  return c.html(renderOgHtml(identity, `/eth/${address}${tab}`, `/eth/${address}`))
 })
 
-app.get('/pgp/:fingerprint', async (c) => {
+app.get('/pgp/:fingerprint/:tab?', async (c) => {
   const fingerprint = c.req.param('fingerprint')
-  if (!isValidFingerprint(fingerprint)) return c.html(renderSiteOgHtml(`/pgp/${fingerprint}`))
+  const tab = tabOf(c)
+  if (!isValidFingerprint(fingerprint) || tab === null) return c.html(renderSiteOgHtml(`/pgp/${fingerprint}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByFingerprint(fingerprint)
@@ -74,12 +86,13 @@ app.get('/pgp/:fingerprint', async (c) => {
     logError('Resolve error (/pgp):', err)
     identity = { ...emptyIdentity(), fingerprint }
   }
-  return c.html(renderOgHtml(identity, `/pgp/${fingerprint}`))
+  return c.html(renderOgHtml(identity, `/pgp/${fingerprint}${tab}`, `/pgp/${fingerprint}`))
 })
 
-app.get('/ens/:name', async (c) => {
+app.get('/ens/:name/:tab?', async (c) => {
   const name = c.req.param('name')
-  if (!isValidEnsName(name)) return c.html(renderSiteOgHtml(`/ens/${name}`))
+  const tab = tabOf(c)
+  if (!isValidEnsName(name) || tab === null) return c.html(renderSiteOgHtml(`/ens/${name}`))
   let identity: ResolvedIdentity
   try {
     identity = await resolveByEns(name)
@@ -87,7 +100,7 @@ app.get('/ens/:name', async (c) => {
     logError('Resolve error (/ens):', err)
     identity = { ...emptyIdentity(), ensName: name }
   }
-  return c.html(renderOgHtml(identity, `/ens/${name}`))
+  return c.html(renderOgHtml(identity, `/ens/${name}${tab}`, `/ens/${name}`))
 })
 
 // ─── Image routes (share card PNGs) ──────────────────────────────────────────
