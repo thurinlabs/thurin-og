@@ -22,11 +22,11 @@ import { normalizeAvatarUrl } from './safe'
 
 // NETWORK=mainnet (default) | sepolia | local. The v2 registry has the same address on
 // every network; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
-// works — ALCHEMY_RPC_URL is optional now.
+// works: RPC_URL overrides the keyless public default.
 const NETWORK = isNetworkName(process.env.NETWORK) ? process.env.NETWORK : 'mainnet'
 const REGISTRY = getRegistry(NETWORK, process.env.REGISTRY_ADDRESS)
 const CHAIN = NETWORK === 'sepolia' ? sepolia : NETWORK === 'local' ? foundry : mainnet
-const RPC_URL = process.env.ALCHEMY_RPC_URL || process.env.RPC_URL || REGISTRY.defaultRpcUrl
+const RPC_URL = process.env.RPC_URL || REGISTRY.defaultRpcUrl
 
 const client = createPublicClient({
   chain: CHAIN,

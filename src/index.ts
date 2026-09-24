@@ -6,7 +6,7 @@ import { isValidAddress, isValidFingerprint, isValidEnsName } from './safe'
 
 const app = new Hono()
 
-const RPC_URL = process.env.ALCHEMY_RPC_URL || ''
+const RPC_URL = process.env.RPC_URL || ''
 
 // viem attaches the full RPC URL — API key included — to error messages and
 // stacks, so raw errors must never reach the journal. Redact the configured
