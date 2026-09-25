@@ -1,4 +1,5 @@
 import { isIP } from 'node:net'
+import { avatarUrl } from '@thurinlabs/identity-kit/core'
 import { lookup } from 'node:dns/promises'
 
 // ─── Input validation ────────────────────────────────────────────────────────
@@ -53,18 +54,16 @@ async function hostIsPublic(host: string): Promise<boolean> {
   }
 }
 
-// Convert an ENS avatar record into a fetchable https URL, or null. Handles
-// https, ipfs, and inline data image URIs; deliberately drops NFT (eip155:)
-// records, which otherwise make the resolver fetch attacker-controlled token
-// URIs with no content-type gate.
+// Inline images we render as they are: raster only (an SVG could carry markup into the card).
+const INLINE_IMAGE = /^data:image\/(png|jpe?g|gif)[;,]/i
+
+// An ENS avatar record as a URL to fetch, or null: the kit's rule, as on thurin.id (IPFS, Arweave,
+// euc.li; never a server the name's owner picked, which would learn when its card is rendered).
+// NFT (eip155:) records are dropped: they'd have us fetch token URIs the owner controls.
 export function normalizeAvatarUrl(record: string | null | undefined): string | null {
   if (!record) return null
-  if (record.startsWith('https://')) return record
-  if (record.startsWith('ipfs://')) {
-    return 'https://ipfs.io/ipfs/' + record.slice('ipfs://'.length).replace(/^ipfs\//, '')
-  }
-  if (record.startsWith('data:image/')) return record
-  return null
+  if (record.startsWith('data:')) return INLINE_IMAGE.test(record) ? record : null
+  return avatarUrl(record)
 }
 
 const IMAGE_MAGIC: { type: string; bytes: number[] }[] = [
@@ -96,7 +95,7 @@ const MAX_REDIRECTS = 4
 // Fetch an image URL with SSRF, timeout, size, redirect, and content-type
 // protections, returning a data URI whose type is sniffed (trusted) — or null.
 export async function fetchImageAsDataUri(rawUrl: string): Promise<string | null> {
-  if (rawUrl.startsWith('data:image/')) return rawUrl
+  if (rawUrl.startsWith('data:')) return INLINE_IMAGE.test(rawUrl) ? rawUrl : null
 
   let url = rawUrl
   for (let hop = 0; hop < MAX_REDIRECTS; hop++) {

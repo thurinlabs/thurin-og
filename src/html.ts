@@ -9,15 +9,13 @@ export function renderOgHtml(identity: ResolvedIdentity, path: string, imagePath
       ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Thurin.id`
       : identity.fingerprint
         ? `${identity.fingerprint.slice(0, 8)}... — Thurin.id`
-        : 'Thurin.id — Identity Explorer'
+        : 'Thurin.id'
 
-  const parts: string[] = []
-  if (identity.activeClaims > 0) parts.push(`${identity.activeClaims} attestation${identity.activeClaims !== 1 ? 's' : ''}`)
-  if (identity.proofs.length > 0) parts.push(`${identity.proofs.length} proof${identity.proofs.length !== 1 ? 's' : ''}`)
-  if (identity.efp?.followers) parts.push(`${identity.efp.followers} followers`)
-  const description = parts.length > 0
-    ? parts.join(' · ')
-    : 'Look up any Ethereum identity on Thurin'
+  const description = identity.fingerprint
+    ? `PGP key ${identity.fingerprint.slice(0, 4)} … ${identity.fingerprint.slice(-4)}: ${identity.status.label}`
+    : identity.address
+      ? `No PGP key claimed on Ethereum yet`
+      : 'PGP keys on Ethereum, checkable by anyone'
 
   const canonicalUrl = `${THURIN_BASE}${path}`
   const imageUrl = `${THURIN_BASE}/og${imagePath}.png`   // the card is keyed by the base path; a tab URL shares it

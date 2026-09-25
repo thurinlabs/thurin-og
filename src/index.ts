@@ -1,7 +1,10 @@
 import { Hono } from 'hono'
 import { resolveByAddress, resolveByEns, resolveByFingerprint, emptyIdentity, type ResolvedIdentity } from './resolve'
 import { renderOgHtml, renderSiteOgHtml } from './html'
-import { renderOgImage, renderCardImage, renderSiteImage } from './image'
+import { renderOgImage, renderCardImage, renderSiteImage, type Theme } from './image'
+
+// ?theme=light draws the card in the sites' light mode; anything else is dark.
+const themeOf = (c: { req: { query: (k: string) => string | undefined } }): Theme => (c.req.query('theme') === 'light' ? 'light' : 'dark')
 import { isValidAddress, isValidFingerprint, isValidEnsName } from './safe'
 
 const app = new Hono()
@@ -110,7 +113,7 @@ app.get('/og/eth/:address', async (c) => {
     const address = c.req.param('address').replace(/\.png$/, '')
     if (!isValidAddress(address)) return c.text('Not Found', 404)
     const identity = await resolveByAddress(address)
-    const png = await renderOgImage(identity)
+    const png = await renderOgImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('OG image error:', err)
@@ -123,7 +126,7 @@ app.get('/og/pgp/:fingerprint', async (c) => {
     const fingerprint = c.req.param('fingerprint').replace(/\.png$/, '')
     if (!isValidFingerprint(fingerprint)) return c.text('Not Found', 404)
     const identity = await resolveByFingerprint(fingerprint)
-    const png = await renderOgImage(identity)
+    const png = await renderOgImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('OG image error:', err)
@@ -136,7 +139,7 @@ app.get('/og/ens/:name', async (c) => {
     const name = c.req.param('name').replace(/\.png$/, '')
     if (!isValidEnsName(name)) return c.text('Not Found', 404)
     const identity = await resolveByEns(name)
-    const png = await renderOgImage(identity)
+    const png = await renderOgImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('OG image error:', err)
@@ -151,7 +154,7 @@ app.get('/card/eth/:address', async (c) => {
     const address = c.req.param('address').replace(/\.png$/, '')
     if (!isValidAddress(address)) return c.text('Not Found', 404)
     const identity = await resolveByAddress(address)
-    const png = await renderCardImage(identity)
+    const png = await renderCardImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('Card image error:', err)
@@ -164,7 +167,7 @@ app.get('/card/pgp/:fingerprint', async (c) => {
     const fingerprint = c.req.param('fingerprint').replace(/\.png$/, '')
     if (!isValidFingerprint(fingerprint)) return c.text('Not Found', 404)
     const identity = await resolveByFingerprint(fingerprint)
-    const png = await renderCardImage(identity)
+    const png = await renderCardImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('Card image error:', err)
@@ -177,7 +180,7 @@ app.get('/card/ens/:name', async (c) => {
     const name = c.req.param('name').replace(/\.png$/, '')
     if (!isValidEnsName(name)) return c.text('Not Found', 404)
     const identity = await resolveByEns(name)
-    const png = await renderCardImage(identity)
+    const png = await renderCardImage(identity, themeOf(c))
     return c.body(png, 200, { 'Content-Type': 'image/png', 'Cache-Control': 'public, max-age=3600' })
   } catch (err: any) {
     logError('Card image error:', err)

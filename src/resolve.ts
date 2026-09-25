@@ -13,10 +13,9 @@ import {
   verifyAttestation,
   payloadText,
   identifyProof,
-  fetchEFPGraph,
+  CLAIM_CHECK_LABEL,
   type PGPKeyInfo,
   type Proof,
-  type EFPGraph,
 } from '@thurinlabs/identity-kit'
 import { cacheGet, cacheSet } from './cache'
 import { normalizeAvatarUrl } from './safe'
@@ -40,17 +39,28 @@ const registry = { address: REGISTRY.address, abi: REGISTRY_ABI } as const
 // times can't turn one request into an unbounded run of signature checks.
 const MAX_VERIFY = 50
 
+/** Where the identity's key stands, in the words the card shows. */
+export interface KeyStatus {
+  /** verified: a claim that counts · not-counted: an active claim that doesn't verify (label says why) ·
+   *  inactive: only ended claims · none: never claimed. */
+  kind: 'verified' | 'not-counted' | 'inactive' | 'none'
+  label: string
+  /** When the verified claim was made, Unix seconds. */
+  since: number | null
+}
+
 export interface ResolvedIdentity {
   address: string | null
   ensName: string | null
   ensAvatar: string | null
+  /** The key the card shows: the verified claim's, else the newest active claim's. */
   fingerprint: string | null
+  status: KeyStatus
   activeClaims: number
   totalClaims: number
   pgpKeyInfo: PGPKeyInfo | null
   proofs: Proof[]
   mastodonUrls: string[]
-  efp: EFPGraph | null
 }
 
 export async function resolveByAddress(address: string): Promise<ResolvedIdentity> {
@@ -128,7 +138,7 @@ export async function resolveByFingerprint(fingerprint: string): Promise<Resolve
   // No active claim anywhere: nothing to show beyond the fingerprint itself.
   const result = address
     ? await buildIdentity(address, undefined, fp)
-    : { ...emptyIdentity(), fingerprint: fp.toUpperCase() }
+    : { ...emptyIdentity(), fingerprint: fp.toUpperCase(), status: { kind: 'inactive' as const, label: 'no active claim', since: null } }
   cacheSet(cacheKey, result)
   return result
 }
@@ -161,12 +171,17 @@ async function buildIdentity(
   let activeClaims = 0
   let fingerprint: string | null = null
   let armoredKey: string | null = null
+  let status: KeyStatus = { kind: 'none', label: 'no claim yet', since: null }
   const wanted = fingerprintHint ? normalizeFingerprint(fingerprintHint) : null
 
   try {
     const rows = await client.readContract({ ...registry, functionName: 'claimsOf', args: [address as `0x${string}`] })
     totalClaims = rows.length
     activeClaims = rows.filter((r) => Number(r.revokedAt) === 0).length
+    if (totalClaims && !activeClaims) {
+      const last = rows[rows.length - 1]
+      status = { kind: 'inactive', label: last.revokeReason === 'compromised' ? 'key compromised' : 'no active claim', since: null }
+    }
 
     let checked = 0
     for (let i = rows.length - 1; i >= 0 && checked < MAX_VERIFY; i--) {
@@ -187,7 +202,14 @@ async function buildIdentity(
       if (v.verified) {
         fingerprint = fp.toUpperCase()
         armoredKey = pgpPublicKey
+        status = { kind: 'verified', label: 'verified on Ethereum', since: Number(row.createdAt) }
         break
+      }
+      // The newest active claim that doesn't count: show its key and why.
+      if (status.kind !== 'not-counted') {
+        fingerprint = fp.toUpperCase()
+        armoredKey = pgpPublicKey
+        status = { kind: 'not-counted', label: v.kind ? CLAIM_CHECK_LABEL[v.kind] : "doesn't verify", since: null }
       }
     }
   } catch { /* contract read optional */ }
@@ -210,20 +232,17 @@ async function buildIdentity(
     }
   }
 
-  // Fetch EFP
-  const efp = await fetchEFPGraph(address)
-
   return {
     address,
     ensName,
     ensAvatar,
     fingerprint,
+    status,
     activeClaims,
     totalClaims,
     pgpKeyInfo,
     proofs,
     mastodonUrls,
-    efp,
   }
 }
 
@@ -233,11 +252,11 @@ export function emptyIdentity(): ResolvedIdentity {
     ensName: null,
     ensAvatar: null,
     fingerprint: null,
+    status: { kind: 'none', label: 'no claim yet', since: null },
     activeClaims: 0,
     totalClaims: 0,
     pgpKeyInfo: null,
     proofs: [],
     mastodonUrls: [],
-    efp: null,
   }
 }

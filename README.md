@@ -9,7 +9,7 @@ A [Thurin Labs](https://thurinlabs.id) project.
 When Twitter, Farcaster, Mastodon, or any other platform crawls a thurin.id link, this service returns:
 
 - **OG meta tags** — per-identity title, description, and image for rich link previews
-- **Share card images** — PNG cards showing the ENS name, avatar, claim count, proofs, EFP followers, and provider badges
+- **Share card images** — PNG cards showing the name, avatar, address, PGP key, and whether the key is verified on Ethereum (or why not)
 - **`rel="me"` links** — let Mastodon verify the thurin.id link on a profile whose key carries a Mastodon proof
 
 ## How it works
@@ -43,7 +43,7 @@ GET /og/ens/:name.png
 
 Returns a 1200x630 PNG share card generated on the fly.
 
-### Card images (compact PNGs for inline embeds)
+### Card images (compact PNGs for READMEs)
 
 ```
 GET /card/eth/:address.png
@@ -65,7 +65,6 @@ GET /health
 All data is fetched live using [`@thurinlabs/identity-kit`](https://www.npmjs.com/package/@thurinlabs/identity-kit) core modules:
 
 - **PGPRegistry contract** — the claims (`claimsOf`) and the key stored on the current one (`keyBytes`), which carries the proof notations; no keyserver
-- **EFP API** — follower/following counts
 - **ENS** — name resolution and avatar (via viem)
 
 Responses are cached in memory (bounded LRU) for 1 hour. Path params are validated at
