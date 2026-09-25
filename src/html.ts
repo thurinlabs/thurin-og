@@ -4,15 +4,15 @@ const THURIN_BASE = 'https://thurin.id'
 
 export function renderOgHtml(identity: ResolvedIdentity, path: string, imagePath: string = path): string {
   const title = identity.ensName
-    ? `${identity.ensName} — Thurin.id`
+    ? `Thurin.id: ${identity.ensName}`
     : identity.address
-      ? `${identity.address.slice(0, 8)}...${identity.address.slice(-4)} — Thurin.id`
+      ? `Thurin.id: ${identity.address.slice(0, 6)}…${identity.address.slice(-4)}`
       : identity.fingerprint
-        ? `${identity.fingerprint.slice(0, 8)}... — Thurin.id`
+        ? `Thurin.id: ${identity.fingerprint.slice(0, 8)}…`
         : 'Thurin.id'
 
   const description = identity.fingerprint
-    ? `PGP key ${identity.fingerprint.slice(0, 4)} … ${identity.fingerprint.slice(-4)}: ${identity.status.label}`
+    ? `PGP key ${identity.fingerprint.slice(0, 4)}…${identity.fingerprint.slice(-4)}: ${identity.status.label}`
     : identity.address
       ? `No PGP key claimed on Ethereum yet`
       : 'PGP keys on Ethereum, checkable by anyone'
