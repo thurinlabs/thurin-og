@@ -22,7 +22,7 @@ import { cacheGet, cacheSet } from './cache'
 import { normalizeAvatarUrl } from './safe'
 
 // NETWORK=mainnet (default) | sepolia | local. The registry has the same address on
-// every network; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
+// mainnet, Sepolia, and local; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
 // works: RPC_URL overrides the keyless public default.
 const NETWORK = isNetworkName(process.env.NETWORK) ? process.env.NETWORK : 'mainnet'
 const REGISTRY = getRegistry(NETWORK, process.env.REGISTRY_ADDRESS)
