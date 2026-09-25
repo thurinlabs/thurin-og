@@ -137,7 +137,7 @@ export async function renderCardImage(identity: ResolvedIdentity): Promise<Buffe
         <span style={{ fontSize: identity.ensName ? 38 : 22, fontWeight: 700, color: C.heading }}>{name}</span>
         {subtitle ? <span style={{ fontSize: 18, color: C.muted, marginTop: 2 }}>{subtitle}</span> : null}
         <div style={{ display: 'flex', marginTop: 18, gap: 10, alignItems: 'baseline' }}>
-          <StatInline value={attestations} label="Attestations" />
+          <StatInline value={attestations} label="Claims" />
           <span style={{ color: C.border, fontSize: 22 }}>·</span>
           <StatInline value={proofCount} label="Proofs" />
           <span style={{ color: C.border, fontSize: 22 }}>·</span>
@@ -257,7 +257,7 @@ export async function renderOgImage(identity: ResolvedIdentity): Promise<Buffer>
 
         {/* Stats row */}
         <div style={{ display: 'flex', gap: 20, marginBottom: 48, justifyContent: 'center' }}>
-          <Stat value={identity.activeClaims} label="Attestations" />
+          <Stat value={identity.activeClaims} label="Claims" />
           <Stat value={proofCount} label="Proofs" />
           <Stat value={followers} label="Followers" />
         </div>
