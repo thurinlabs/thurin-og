@@ -11,9 +11,8 @@ const app = new Hono()
 
 const RPC_URL = process.env.RPC_URL || ''
 
-// viem attaches the full RPC URL — API key included — to error messages and
-// stacks, so raw errors must never reach the journal. Redact the configured
-// URL literally, then common provider key-URL shapes as a fallback.
+// viem puts the full RPC URL, API key included, in error messages. Redact it before anything
+// reaches the journal: the configured URL, then common key-in-URL shapes.
 function redactKeys(s: string): string {
   let out = s
   if (RPC_URL) out = out.split(RPC_URL).join('[redacted-rpc]')
@@ -54,9 +53,8 @@ app.get('/og/site.png', async (c) => {
 // A crawler that gets a 500 shows no preview at all, so RPC failures degrade to
 // a sparse card seeded with the requested identifier.
 
-// Identity pages have tabs as routes (/ens/<name>/claims, /records, /encrypt). A shared tab URL
-// gets the same identity card as the overview: the image is keyed by the base path, the
-// canonical URL keeps the tab. Anything else after the identifier is not an identity page.
+// Tabs are routes (/ens/<name>/claims, /records, /encrypt): a tab URL gets the overview's card
+// and keeps its own canonical URL. Anything else after the identifier is not an identity page.
 const TABS = new Set(['claims', 'records', 'encrypt'])
 function tabOf(c: { req: { param: (k: string) => string | undefined } }): string | null {
   const tab = c.req.param('tab')
@@ -193,10 +191,8 @@ app.get('/card/ens/:name', async (c) => {
 app.get('/health', (c) => c.text('ok'))
 
 // ─── Catch-all ───────────────────────────────────────────────────────────────
-// nginx forwards every crawler-UA request here, so unmatched paths must serve
-// a card, not a 404 — otherwise new SPA routes silently lose their previews.
-// Image/asset-like paths stay 404: a 200 HTML response where a PNG is expected
-// would poison caches and hide broken og:image URLs.
+// nginx sends every crawler here, so an unmatched path gets a card, not a 404: new site routes
+// keep their previews. Asset-like paths stay 404, or HTML would be cached where a PNG belongs.
 
 app.notFound((c) => {
   const pathname = new URL(c.req.url).pathname
@@ -214,8 +210,7 @@ console.log(`thurin-og listening on :${port}`)
 
 export default {
   port,
-  // Bind loopback by default — the service sits behind nginx, so it should not
-  // be reachable directly. Override with HOST if a different bind is needed.
+  // Loopback by default: nginx is the only way in. HOST overrides.
   hostname: process.env.HOST || '127.0.0.1',
   fetch: app.fetch,
 }

@@ -72,9 +72,8 @@ const IMAGE_MAGIC: { type: string; bytes: number[] }[] = [
   { type: 'image/gif', bytes: [0x47, 0x49, 0x46, 0x38] },
 ]
 
-// Determine the image type from the leading bytes rather than trusting the
-// remote Content-Type header (which can carry an SVG-injection payload that
-// satori would serialize into the output image unescaped).
+// The type comes from the bytes, not the remote Content-Type: that header could pass off SVG,
+// which satori would copy into the card unescaped.
 function sniffImageType(buf: Uint8Array): string | null {
   for (const { type, bytes } of IMAGE_MAGIC) {
     if (bytes.every((b, i) => buf[i] === b)) return type
@@ -88,12 +87,12 @@ function sniffImageType(buf: Uint8Array): string | null {
   return null
 }
 
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024 // 2 MB
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024
 const FETCH_TIMEOUT_MS = 3000
 const MAX_REDIRECTS = 4
 
-// Fetch an image URL with SSRF, timeout, size, redirect, and content-type
-// protections, returning a data URI whose type is sniffed (trusted) — or null.
+// An image as a data URI with its sniffed type, or null. Checked for SSRF on every redirect,
+// with a timeout and a size cap.
 export async function fetchImageAsDataUri(rawUrl: string): Promise<string | null> {
   if (rawUrl.startsWith('data:')) return INLINE_IMAGE.test(rawUrl) ? rawUrl : null
 
@@ -140,7 +139,7 @@ export async function fetchImageAsDataUri(rawUrl: string): Promise<string | null
     for (const c of chunks) { buf.set(c, offset); offset += c.byteLength }
 
     const type = sniffImageType(buf)
-    if (!type) return null // not a recognized raster image — reject
+    if (!type) return null // not a raster image
 
     return `data:${type};base64,${Buffer.from(buf).toString('base64')}`
   }

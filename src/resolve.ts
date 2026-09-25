@@ -18,9 +18,8 @@ import {
 import { cacheGet, cacheSet } from './cache'
 import { normalizeAvatarUrl } from './safe'
 
-// NETWORK=mainnet (default) | sepolia | local. The registry has the same address on
-// mainnet, Sepolia, and local; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
-// works: RPC_URL overrides the keyless public default.
+// NETWORK=mainnet (default) | sepolia | local; the registry has the same address on all three.
+// REGISTRY_ADDRESS and RPC_URL override the defaults; reads are plain eth_calls, so any RPC works.
 const NETWORK = isNetworkName(process.env.NETWORK) ? process.env.NETWORK : 'mainnet'
 const REGISTRY = getRegistry(NETWORK, process.env.REGISTRY_ADDRESS)
 const CHAIN = NETWORK === 'sepolia' ? sepolia : NETWORK === 'local' ? foundry : mainnet
@@ -81,10 +80,8 @@ export async function resolveByEns(name: string): Promise<ResolvedIdentity> {
 
   const result = await buildIdentity(address, name)
   cacheSet(cacheKey, result)
-  // Do NOT populate the addr: cache from an ENS lookup. Forward resolution is
-  // attacker-controlled (anyone can point their ENS name at any address), so
-  // writing it here would let /eth and /card render a spoofed name for that
-  // address for the whole cache TTL.
+  // Never seed the addr: cache from a name: anyone can point a name at any address, and /eth and
+  // /card would show the spoofed name for that address until the cache expires.
   return result
 }
 
@@ -125,7 +122,6 @@ async function buildIdentity(
   fingerprintHint?: string,
   known?: Attestation[],
 ): Promise<ResolvedIdentity> {
-  // Resolve ENS
   let ensName = ensNameHint || null
   let ensAvatar: string | null = null
   try {
@@ -133,9 +129,8 @@ async function buildIdentity(
       ensName = await client.getEnsName({ address: address as `0x${string}` })
     }
     if (ensName) {
-      // Read the raw avatar record; normalizeAvatarUrl keeps only IPFS, Arweave, euc.li, or raster data.
-      // getEnsAvatar would also resolve NFT (eip155) avatars by fetching an
-      // attacker-controlled token URI — an SSRF path we avoid entirely.
+      // The raw record, filtered by normalizeAvatarUrl. getEnsAvatar would fetch NFT token URIs
+      // the name's owner controls (SSRF).
       const avatarRecord = await client.getEnsText({ name: normalize(ensName), key: 'avatar' })
       ensAvatar = normalizeAvatarUrl(avatarRecord)
     }
@@ -155,7 +150,7 @@ async function buildIdentity(
   const fingerprint = shown ? shown.fingerprint.toUpperCase() : null
   const armoredKey = shown?.pgpPublicKey ?? null
 
-  // PGP key + proofs come from the on-chain key. No keyserver.
+  // The key and its proofs come from the chain, never a keyserver.
   let pgpKeyInfo: PGPKeyInfo | null = null
   let mastodonUrls: string[] = []
 

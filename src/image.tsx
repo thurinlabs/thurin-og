@@ -41,8 +41,7 @@ async function fetchFont(url: string): Promise<ArrayBuffer> {
 }
 
 async function getFonts() {
-  // On failure fetchFont throws, leaving the cache null so the next request
-  // retries — a bad CDN response is never cached for the process lifetime.
+  // A failed fetch leaves the cache null, so the next request retries instead of keeping it.
   if (!fontRegular) {
     fontRegular = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf')
   }
@@ -158,7 +157,7 @@ function IdentityCard({ identity, avatarUri, scale, c, mark = true }: { identity
   )
 }
 
-// Compact card for READMEs and posts: 640×200, the same URLs as always.
+// Compact card for READMEs and posts, 640×200.
 export async function renderCardImage(identity: ResolvedIdentity, theme: Theme = 'dark'): Promise<Buffer> {
   const c = palette(theme)
   const avatarUri = identity.ensAvatar ? await fetchImageAsDataUri(identity.ensAvatar) : null
