@@ -194,7 +194,7 @@ export async function renderSiteImage(): Promise<Buffer> {
       <Thumbprint size={220} opacity={0.8} c={c} />
       <Wordmark size={64} c={c} />
       <span style={{ fontSize: 32, color: c.muted }}>PGP keys on Ethereum</span>
-      <span style={{ fontSize: 26, color: c.secondary, fontStyle: 'italic', marginTop: 16 }}>Prove more. Reveal less.</span>
+      <span style={{ fontSize: 26, color: c.secondary, fontStyle: 'italic', marginTop: 16 }}>Old trust – new ground</span>
       <span style={{ fontSize: 24, color: c.muted }}>thurin.id</span>
     </div>,
     { width: 1200, height: 630, fonts },
@@ -217,7 +217,7 @@ export async function renderOgImage(identity: ResolvedIdentity, theme: Theme = '
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: 300, gap: 16 }}>
         <Wordmark size={40} c={c} />
         <Thumbprint size={200} opacity={0.6} c={c} />
-        <span style={{ fontSize: 22, color: c.secondary, fontStyle: 'italic' }}>Prove more. Reveal less.</span>
+        <span style={{ fontSize: 22, color: c.secondary, fontStyle: 'italic' }}>Old trust – new ground</span>
       </div>
     </div>,
     { width: 1200, height: 630, fonts },

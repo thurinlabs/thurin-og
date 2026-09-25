@@ -42,7 +42,7 @@ ${relMeLinks}
 </head>
 <body>
   <script>window.location.href = ${escapeJsString(canonicalUrl)};</script>
-  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin</a></noscript>
+  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin.id</a></noscript>
 </body>
 </html>`
 }
@@ -51,10 +51,10 @@ ${relMeLinks}
 export function renderSiteOgHtml(path: string): string {
   const normalized = path.replace(/\/+$/, '') || '/'
   const title = normalized === '/attest'
-    ? 'Thurin.id — Attest'
-    : 'Thurin.id — Identity Explorer'
+    ? 'Thurin.id: add your key'
+    : 'Thurin.id: PGP keys on Ethereum'
   const description =
-    'Explore and verify the Thurin identity graph. Look up Ethereum addresses, ENS names, and PGP fingerprints.'
+    "Look up anyone's PGP key, or put yours on your Ethereum address. Anyone can check it, and none of it depends on us."
 
   const canonicalUrl = `${THURIN_BASE}${path === '/' ? '/' : path}`
   const imageUrl = `${THURIN_BASE}/og/site.png`
@@ -80,7 +80,7 @@ export function renderSiteOgHtml(path: string): string {
   <meta name="twitter:image" content="${escapeHtml(imageUrl)}" />
 </head>
 <body>
-${redirect}  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin</a></noscript>
+${redirect}  <noscript><a href="${escapeHtml(canonicalUrl)}">View on Thurin.id</a></noscript>
 </body>
 </html>`
 }
