@@ -2,18 +2,16 @@ import { createPublicClient, http } from 'viem'
 import { mainnet, sepolia, foundry } from 'viem/chains'
 import { normalize } from 'viem/ens'
 import {
-  REGISTRY_ABI,
   getRegistry,
   isNetworkName,
-  bytesToFingerprint,
-  fingerprintToBytes,
-  keyIdToBytes,
   normalizeFingerprint,
   parsePgpKey,
-  verifyAttestation,
-  payloadText,
   identifyProof,
+  readClaims,
+  keyStanding,
+  findOwners,
   CLAIM_CHECK_LABEL,
+  type Attestation,
   type PGPKeyInfo,
   type Proof,
 } from '@thurinlabs/identity-kit'
@@ -33,11 +31,7 @@ const client = createPublicClient({
   transport: http(RPC_URL),
 })
 
-const registry = { address: REGISTRY.address, abi: REGISTRY_ABI } as const
-
-// Cap how many claims we verify per address so an address that self-attests many
-// times can't turn one request into an unbounded run of signature checks.
-const MAX_VERIFY = 50
+const registry = { registry: REGISTRY.address }
 
 /** Where the identity's key stands, in the words the card shows. */
 export interface KeyStatus {
@@ -94,49 +88,34 @@ export async function resolveByEns(name: string): Promise<ResolvedIdentity> {
   return result
 }
 
-export async function resolveByFingerprint(fingerprint: string): Promise<ResolvedIdentity> {
-  // A 16-char key ID resolves to a fingerprint through the registry's own index.
-  if (/^[0-9a-fA-F]{16}$/.test(fingerprint)) {
-    const keyId = keyIdToBytes(fingerprint)
-    if (!keyId) return emptyIdentity()
-    try {
-      const fps = await client.readContract({ ...registry, functionName: 'fingerprintsForKeyId', args: [keyId] })
-      if (fps.length === 0) return emptyIdentity()
-      fingerprint = bytesToFingerprint(fps[0])
-    } catch {
-      return emptyIdentity()
+export async function resolveByFingerprint(input: string): Promise<ResolvedIdentity> {
+  // A 16-char key ID resolves through the registry's own index; a key ID can match several keys.
+  const isKeyId = /^[0-9a-fA-F]{16}$/.test(input)
+  const fp = isKeyId ? null : normalizeFingerprint(input)
+  if (!isKeyId && !fp) return emptyIdentity()
+  if (fp) {
+    const cached = cacheGet<ResolvedIdentity>(`fpr:${fp}`)
+    if (cached) return cached
+  }
+
+  // Every owner that ever claimed the key; show the first with an active claim for it.
+  let owners: { owner: string; fingerprint: string }[] = []
+  try { owners = await findOwners(client, isKeyId ? { keyId: input } : { fingerprint: fp! }, registry) } catch { /* registry read optional */ }
+  if (isKeyId && !owners.length) return emptyIdentity()
+  const shown = fp ?? owners[0].fingerprint
+  let result: ResolvedIdentity | null = null
+  for (const { owner, fingerprint } of owners) {
+    let claims: Attestation[]
+    try { claims = await readClaims(client, owner as `0x${string}`, registry) } catch { continue }
+    if (claims.some(c => !c.revoked && c.fingerprint === fingerprint)) {
+      result = await buildIdentity(owner, undefined, fingerprint, claims)
+      break
     }
   }
 
-  const fp = normalizeFingerprint(fingerprint)
-  if (!fp) return emptyIdentity()
-
-  const cacheKey = `fpr:${fp}`
-  const cached = cacheGet<ResolvedIdentity>(cacheKey)
-  if (cached) return cached
-
-  // Every owner that ever attested this fingerprint; pick the first with an active claim for it.
-  let address: string | null = null
-  try {
-    const owners = await client.readContract({
-      ...registry,
-      functionName: 'ownersOf',
-      args: [fingerprintToBytes(fp)],
-    })
-    for (const owner of owners) {
-      const rows = await client.readContract({ ...registry, functionName: 'claimsOf', args: [owner] })
-      if (rows.some((r) => Number(r.revokedAt) === 0 && bytesToFingerprint(r.fingerprint) === fp)) {
-        address = owner
-        break
-      }
-    }
-  } catch { /* registry read optional */ }
-
   // No active claim anywhere: nothing to show beyond the fingerprint itself.
-  const result = address
-    ? await buildIdentity(address, undefined, fp)
-    : { ...emptyIdentity(), fingerprint: fp.toUpperCase(), status: { kind: 'inactive' as const, label: 'no active claim', since: null } }
-  cacheSet(cacheKey, result)
+  result ??= { ...emptyIdentity(), fingerprint: shown.toUpperCase(), status: { kind: 'inactive' as const, label: 'no active claim', since: null } }
+  cacheSet(`fpr:${result.fingerprint?.toLowerCase() ?? shown}`, result)
   return result
 }
 
@@ -144,6 +123,7 @@ async function buildIdentity(
   address: string,
   ensNameHint?: string,
   fingerprintHint?: string,
+  known?: Attestation[],
 ): Promise<ResolvedIdentity> {
   // Resolve ENS
   let ensName = ensNameHint || null
@@ -161,55 +141,19 @@ async function buildIdentity(
     }
   } catch { /* ENS resolution is optional */ }
 
-  // Claims: the full history in one call, then the stored key of the current claim.
-  // "Current" = the latest active claim whose stored signature verifies for this
-  // address (the same rule identity-kit uses), optionally pinned to a fingerprint.
-  let totalClaims = 0
-  let activeClaims = 0
-  let fingerprint: string | null = null
-  let armoredKey: string | null = null
-  let status: KeyStatus = { kind: 'none', label: 'no claim yet', since: null }
+  // The key the card shows, by identity-kit's rule, optionally pinned to one fingerprint.
+  let claims = known ?? []
+  if (!known) try { claims = await readClaims(client, address as `0x${string}`, registry) } catch { /* contract read optional */ }
   const wanted = fingerprintHint ? normalizeFingerprint(fingerprintHint) : null
-
-  try {
-    const rows = await client.readContract({ ...registry, functionName: 'claimsOf', args: [address as `0x${string}`] })
-    totalClaims = rows.length
-    activeClaims = rows.filter((r) => Number(r.revokedAt) === 0).length
-    if (totalClaims && !activeClaims) {
-      const last = rows[rows.length - 1]
-      status = { kind: 'inactive', label: last.revokeReason === 'compromised' ? 'key compromised' : 'no active claim', since: null }
-    }
-
-    let checked = 0
-    for (let i = rows.length - 1; i >= 0 && checked < MAX_VERIFY; i--) {
-      const row = rows[i]
-      if (Number(row.revokedAt) !== 0) continue
-      const fp = bytesToFingerprint(row.fingerprint)
-      if (wanted && fp !== wanted) continue
-      checked++
-      const args = [address as `0x${string}`, BigInt(i)] as const
-      const [keyHex, sigHex] = await Promise.all([
-        client.readContract({ ...registry, functionName: 'keyBytes', args }),
-        client.readContract({ ...registry, functionName: 'signatureBytes', args }),
-      ])
-      const pgpPublicKey = await payloadText(keyHex, 'key')
-      const pgpSignature = await payloadText(sigHex, 'signature')
-      if (!pgpPublicKey || !pgpSignature) continue
-      const v = await verifyAttestation({ pgpPublicKey, pgpSignature, fingerprint: fp, ethAddress: address })
-      if (v.verified) {
-        fingerprint = fp.toUpperCase()
-        armoredKey = pgpPublicKey
-        status = { kind: 'verified', label: 'verified on Ethereum', since: Number(row.createdAt) }
-        break
-      }
-      // The newest active claim that doesn't count: show its key and why.
-      if (status.kind !== 'not-counted') {
-        fingerprint = fp.toUpperCase()
-        armoredKey = pgpPublicKey
-        status = { kind: 'not-counted', label: v.kind ? CLAIM_CHECK_LABEL[v.kind] : "doesn't verify", since: null }
-      }
-    }
-  } catch { /* contract read optional */ }
+  const { kind, claim } = keyStanding(wanted ? claims.filter(c => c.fingerprint === wanted) : claims)
+  const status: KeyStatus =
+    kind === 'verified' ? { kind, label: 'verified on Ethereum', since: claim.createdAt }
+    : kind === 'not-counted' ? { kind, label: claim.verification?.kind ? CLAIM_CHECK_LABEL[claim.verification.kind] : "doesn't verify", since: null }
+    : kind === 'inactive' ? { kind, label: claim.revokeReason === 'compromised' ? 'key compromised' : 'no active claim', since: null }
+    : { kind, label: 'no claim yet', since: null }
+  const shown = kind === 'verified' || kind === 'not-counted' ? claim : null
+  const fingerprint = shown ? shown.fingerprint.toUpperCase() : null
+  const armoredKey = shown?.pgpPublicKey ?? null
 
   // PGP key + proofs come from the on-chain key. No keyserver.
   let pgpKeyInfo: PGPKeyInfo | null = null
