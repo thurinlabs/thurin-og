@@ -9,8 +9,8 @@ A [Thurin Labs](https://thurinlabs.id) project.
 When Twitter, Farcaster, Mastodon, or any other platform crawls a thurin.id link, this service returns:
 
 - **OG meta tags** — per-identity title, description, and image for rich link previews
-- **Share card images** — dynamically generated PNG cards showing ENS name, avatar, attestation count, proofs, EFP followers, and provider badges
-- **`rel="me"` links** — enables Mastodon profile verification for users with Mastodon proof notations in their PGP key
+- **Share card images** — PNG cards showing the ENS name, avatar, claim count, proofs, EFP followers, and provider badges
+- **`rel="me"` links** — let Mastodon verify the thurin.id link on a profile whose key carries a Mastodon proof
 
 ## How it works
 
@@ -64,8 +64,7 @@ GET /health
 
 All data is fetched live using [`@thurinlabs/identity-kit`](https://www.npmjs.com/package/@thurinlabs/identity-kit) core modules:
 
-- **PGPRegistry contract** — on-chain attestation count and status (via viem)
-- **keys.openpgp.org** — PGP key and proof notations
+- **PGPRegistry contract** — the claims (`claimsOf`) and the key stored on the current one (`keyBytes`), which carries the proof notations; no keyserver
 - **EFP API** — follower/following counts
 - **ENS** — name resolution and avatar (via viem)
 
@@ -124,7 +123,7 @@ MIT
 
 ## Links
 
-- [Thurin](https://thurin.id)
+- [Thurin.id](https://thurin.id)
 - [Documentation](https://docs.thurin.id)
 - [GitHub](https://github.com/thurinlabs)
 - [Codeberg](https://codeberg.org/thurinlabs) (mirror)
