@@ -147,7 +147,7 @@ app.get('/og/ens/:name', async (c) => {
   }
 })
 
-// ─── Card routes (compact PNGs for inline embeds — GitHub READMEs, etc.) ─────
+// ─── Card routes (compact PNGs for READMEs and posts) ──────────────────────
 
 app.get('/card/eth/:address', async (c) => {
   try {

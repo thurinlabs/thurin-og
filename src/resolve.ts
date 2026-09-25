@@ -56,10 +56,7 @@ export interface ResolvedIdentity {
   /** The key the card shows: the verified claim's, else the newest active claim's. */
   fingerprint: string | null
   status: KeyStatus
-  activeClaims: number
-  totalClaims: number
   pgpKeyInfo: PGPKeyInfo | null
-  proofs: Proof[]
   mastodonUrls: string[]
 }
 
@@ -216,13 +213,12 @@ async function buildIdentity(
 
   // PGP key + proofs come from the on-chain key. No keyserver.
   let pgpKeyInfo: PGPKeyInfo | null = null
-  let proofs: Proof[] = []
   let mastodonUrls: string[] = []
 
   if (armoredKey) {
     pgpKeyInfo = await parsePgpKey(armoredKey)
     if (pgpKeyInfo) {
-      proofs = pgpKeyInfo.notations
+      const proofs = pgpKeyInfo.notations
         .map((n) => identifyProof(n))
         .filter((p): p is Proof => p !== null)
 
@@ -238,10 +234,7 @@ async function buildIdentity(
     ensAvatar,
     fingerprint,
     status,
-    activeClaims,
-    totalClaims,
     pgpKeyInfo,
-    proofs,
     mastodonUrls,
   }
 }
@@ -253,10 +246,7 @@ export function emptyIdentity(): ResolvedIdentity {
     ensAvatar: null,
     fingerprint: null,
     status: { kind: 'none', label: 'no claim yet', since: null },
-    activeClaims: 0,
-    totalClaims: 0,
     pgpKeyInfo: null,
-    proofs: [],
     mastodonUrls: [],
   }
 }
