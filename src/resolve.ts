@@ -1,4 +1,4 @@
-import { createPublicClient, http, hexToString, keccak256 } from 'viem'
+import { createPublicClient, http } from 'viem'
 import { mainnet, sepolia, foundry } from 'viem/chains'
 import { normalize } from 'viem/ens'
 import {
@@ -11,6 +11,7 @@ import {
   normalizeFingerprint,
   parsePgpKey,
   verifyAttestation,
+  payloadText,
   identifyProof,
   fetchEFPGraph,
   type PGPKeyInfo,
@@ -20,7 +21,7 @@ import {
 import { cacheGet, cacheSet } from './cache'
 import { normalizeAvatarUrl } from './safe'
 
-// NETWORK=mainnet (default) | sepolia | local. The v2 registry has the same address on
+// NETWORK=mainnet (default) | sepolia | local. The registry has the same address on
 // every network; REGISTRY_ADDRESS overrides it. Reads are plain eth_calls, so any RPC
 // works: RPC_URL overrides the keyless public default.
 const NETWORK = isNetworkName(process.env.NETWORK) ? process.env.NETWORK : 'mainnet'
@@ -112,11 +113,11 @@ export async function resolveByFingerprint(fingerprint: string): Promise<Resolve
   try {
     const owners = await client.readContract({
       ...registry,
-      functionName: 'addressesFor',
-      args: [keccak256(fingerprintToBytes(fp))],
+      functionName: 'ownersOf',
+      args: [fingerprintToBytes(fp)],
     })
     for (const owner of owners) {
-      const rows = await client.readContract({ ...registry, functionName: 'attestationsOf', args: [owner] })
+      const rows = await client.readContract({ ...registry, functionName: 'claimsOf', args: [owner] })
       if (rows.some((r) => Number(r.revokedAt) === 0 && bytesToFingerprint(r.fingerprint) === fp)) {
         address = owner
         break
@@ -163,7 +164,7 @@ async function buildIdentity(
   const wanted = fingerprintHint ? normalizeFingerprint(fingerprintHint) : null
 
   try {
-    const rows = await client.readContract({ ...registry, functionName: 'attestationsOf', args: [address as `0x${string}`] })
+    const rows = await client.readContract({ ...registry, functionName: 'claimsOf', args: [address as `0x${string}`] })
     totalClaims = rows.length
     activeClaims = rows.filter((r) => Number(r.revokedAt) === 0).length
 
@@ -174,13 +175,14 @@ async function buildIdentity(
       const fp = bytesToFingerprint(row.fingerprint)
       if (wanted && fp !== wanted) continue
       checked++
-      const [sigHex, keyHex] = await client.readContract({
-        ...registry,
-        functionName: 'getPayload',
-        args: [address as `0x${string}`, BigInt(i)],
-      })
-      const pgpSignature = hexToString(sigHex)
-      const pgpPublicKey = hexToString(keyHex)
+      const args = [address as `0x${string}`, BigInt(i)] as const
+      const [keyHex, sigHex] = await Promise.all([
+        client.readContract({ ...registry, functionName: 'keyBytes', args }),
+        client.readContract({ ...registry, functionName: 'signatureBytes', args }),
+      ])
+      const pgpPublicKey = await payloadText(keyHex, 'key')
+      const pgpSignature = await payloadText(sigHex, 'signature')
+      if (!pgpPublicKey || !pgpSignature) continue
       const v = await verifyAttestation({ pgpPublicKey, pgpSignature, fingerprint: fp, ethAddress: address })
       if (v.verified) {
         fingerprint = fp.toUpperCase()

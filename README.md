@@ -86,9 +86,9 @@ bun install
 ```
 PORT=3333                    # default
 HOST=127.0.0.1               # default — binds loopback (it sits behind nginx)
-RPC_URL=https://...          # optional: any RPC works (v2 registry reads are plain eth_calls); defaults to publicnode
+RPC_URL=https://...          # optional: any RPC works (registry reads are plain eth_calls); defaults to publicnode
 NETWORK=mainnet              # mainnet (default) | sepolia | local (anvil at 127.0.0.1:8545)
-REGISTRY_ADDRESS=0x...       # optional override of the PGPRegistry v2 address
+REGISTRY_ADDRESS=0x...       # optional override of the PGPRegistry address
 ```
 
 ### Run
