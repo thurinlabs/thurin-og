@@ -26,9 +26,10 @@ Crawler  → nginx → thurin-og (OG tags + image)
 ### HTML (OG meta tags + rel="me")
 
 ```
-GET /eth/:address
-GET /pgp/:fingerprint
-GET /ens/:name
+GET /eth/:address[/claims|/records]
+GET /pgp/:fingerprint[/claims|/records]
+GET /ens/:name[/claims|/records]
+GET /  (and /attest, and anything else: the site's own preview)
 ```
 
 Returns minimal HTML with `og:title`, `og:description`, `og:image`, `twitter:card`, and `link rel="me"` tags. Redirects real browsers to thurin.id.
@@ -39,9 +40,10 @@ Returns minimal HTML with `og:title`, `og:description`, `og:image`, `twitter:car
 GET /og/eth/:address.png
 GET /og/pgp/:fingerprint.png
 GET /og/ens/:name.png
+GET /og/site.png
 ```
 
-Returns a 1200x630 PNG share card generated on the fly.
+Returns a 1200x630 PNG share card generated on the fly. Add `?theme=light` for the light version.
 
 ### Card images (compact PNGs for READMEs)
 

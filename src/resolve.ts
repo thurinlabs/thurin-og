@@ -156,7 +156,7 @@ async function buildIdentity(
       ensName = await client.getEnsName({ address: address as `0x${string}` })
     }
     if (ensName) {
-      // Read the raw avatar record and accept only https/ipfs/data image URLs.
+      // Read the raw avatar record; normalizeAvatarUrl keeps only IPFS, Arweave, euc.li, or raster data.
       // getEnsAvatar would also resolve NFT (eip155) avatars by fetching an
       // attacker-controlled token URI — an SSRF path we avoid entirely.
       const avatarRecord = await client.getEnsText({ name: normalize(ensName), key: 'avatar' })
