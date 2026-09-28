@@ -87,6 +87,9 @@ bun install
 PORT=3333                    # default
 HOST=127.0.0.1               # default — binds loopback (it sits behind nginx)
 RPC_URL=https://...          # optional: any RPC works (registry reads are plain eth_calls); defaults to publicnode
+FONT_DIR=/path/to/fonts       # optional: read the three fonts from here (inter-latin-400-normal.ttf,
+                             # inter-latin-700-normal.ttf, jetbrains-mono-latin-400-normal.ttf) instead of
+                             # fetching them from fontsource 5.3.0 on first use
 NETWORK=mainnet              # mainnet (default) | sepolia | local (anvil at 127.0.0.1:8545)
 REGISTRY_ADDRESS=0x...       # optional override of the PGPRegistry address
 ```

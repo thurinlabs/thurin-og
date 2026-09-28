@@ -1,5 +1,7 @@
 import satori from 'satori'
 import { Resvg } from '@resvg/resvg-js'
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import type { ResolvedIdentity } from './resolve'
 import { fetchImageAsDataUri } from './safe'
 
@@ -34,23 +36,31 @@ let fontRegular: ArrayBuffer | null = null
 let fontBold: ArrayBuffer | null = null
 let fontMono: ArrayBuffer | null = null
 
-async function fetchFont(url: string): Promise<ArrayBuffer> {
-  const resp = await fetch(url, { signal: AbortSignal.timeout(5000) })
+// The fonts, pinned to one fontsource release (never @latest). With FONT_DIR set, they're read from
+// that folder (the files below, by name) and nothing is fetched at runtime.
+const FONT_DIR = process.env.FONT_DIR || ''
+const FONT_CDN = 'https://cdn.jsdelivr.net/fontsource/fonts'
+const FONTS = {
+  regular: { file: 'inter-latin-400-normal.ttf', url: `${FONT_CDN}/inter@5.3.0/latin-400-normal.ttf` },
+  bold: { file: 'inter-latin-700-normal.ttf', url: `${FONT_CDN}/inter@5.3.0/latin-700-normal.ttf` },
+  mono: { file: 'jetbrains-mono-latin-400-normal.ttf', url: `${FONT_CDN}/jetbrains-mono@5.3.0/latin-400-normal.ttf` },
+}
+
+async function loadFont(font: { file: string; url: string }): Promise<ArrayBuffer> {
+  if (FONT_DIR) {
+    const bytes = await readFile(join(FONT_DIR, font.file))
+    return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+  }
+  const resp = await fetch(font.url, { signal: AbortSignal.timeout(5000) })
   if (!resp.ok) throw new Error(`Font fetch failed: ${resp.status}`)
   return resp.arrayBuffer()
 }
 
 async function getFonts() {
-  // A failed fetch leaves the cache null, so the next request retries instead of keeping it.
-  if (!fontRegular) {
-    fontRegular = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-400-normal.ttf')
-  }
-  if (!fontBold) {
-    fontBold = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/inter@latest/latin-700-normal.ttf')
-  }
-  if (!fontMono) {
-    fontMono = await fetchFont('https://cdn.jsdelivr.net/fontsource/fonts/jetbrains-mono@latest/latin-400-normal.ttf')
-  }
+  // A failed load leaves the cache null, so the next request retries instead of keeping it.
+  if (!fontRegular) fontRegular = await loadFont(FONTS.regular)
+  if (!fontBold) fontBold = await loadFont(FONTS.bold)
+  if (!fontMono) fontMono = await loadFont(FONTS.mono)
   return [
     { name: 'Inter', data: fontRegular, weight: 400 as const, style: 'normal' as const },
     { name: 'Inter', data: fontBold, weight: 700 as const, style: 'normal' as const },
