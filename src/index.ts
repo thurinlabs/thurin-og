@@ -53,9 +53,9 @@ app.get('/og/site.png', async (c) => {
 // A crawler that gets a 500 shows no preview at all, so RPC failures degrade to
 // a sparse card seeded with the requested identifier.
 
-// Tabs are routes (/ens/<name>/claims, /records, /encrypt): a tab URL gets the overview's card
-// and keeps its own canonical URL. Anything else after the identifier is not an identity page.
-const TABS = new Set(['claims', 'records', 'encrypt'])
+// Tabs are routes (/ens/<name>/proofs, /records, /encrypt; /claims from older links): a tab URL gets
+// the overview's card and keeps its own canonical URL. Anything else after the identifier is not an identity page.
+const TABS = new Set(['proofs', 'claims', 'records', 'encrypt'])
 function tabOf(c: { req: { param: (k: string) => string | undefined } }): string | null {
   const tab = c.req.param('tab')
   if (tab === undefined || tab === '') return ''
