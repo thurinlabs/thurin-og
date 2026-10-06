@@ -79,10 +79,12 @@ function Thumbprint({ size, opacity = 1, c }: { size: number; opacity?: number; 
   )
 }
 
-// The key, spaced the way gpg prints it: ten groups of four, a wider gap in the middle.
-function spaced(fpr: string): string {
+// The key, spaced the way gpg prints it: groups of four, halves apart. A v4 key (ten groups) fits
+// one line with a wider gap; a v6 key (sixteen) is too wide, so its halves go on two lines.
+function spaced(fpr: string): string[] {
   const g = fpr.match(/.{1,4}/g) ?? []
-  return g.length === 10 ? `${g.slice(0, 5).join(' ')}  ${g.slice(5).join(' ')}` : g.join(' ')
+  const a = g.slice(0, g.length / 2).join(' '), b = g.slice(g.length / 2).join(' ')
+  return g.length > 10 ? [a, b] : [`${a}  ${b}`]
 }
 
 function monthYear(unix: number): string {
@@ -156,7 +158,9 @@ function IdentityCard({ identity, avatarUri, scale, c, mark = true }: { identity
       <div style={{ display: 'flex', alignItems: 'baseline' }}>
         <span style={{ fontSize: px(13), color: c.muted, width: px(72), textTransform: 'uppercase', letterSpacing: 1 }}>PGP key</span>
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <span style={{ fontFamily: 'Mono', fontSize: px(16), color: c.text, whiteSpace: 'pre' }}>{identity.fingerprint ? spaced(identity.fingerprint) : '—'}</span>
+          {(identity.fingerprint ? spaced(identity.fingerprint) : ['—']).map(line => (
+            <span key={line} style={{ fontFamily: 'Mono', fontSize: px(16), color: c.text, whiteSpace: 'pre' }}>{line}</span>
+          ))}
           <div style={{ display: 'flex', alignItems: 'center', marginTop: px(6) }}>
             {status.mark ? <Mark kind={status.mark} size={px(15)} color={status.color} /> : null}
             <span style={{ fontSize: px(15), color: status.color }}>{status.text}</span>

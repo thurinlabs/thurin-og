@@ -9,7 +9,7 @@ export function isValidAddress(v: string): boolean {
 }
 
 export function isValidFingerprint(v: string): boolean {
-  return /^[0-9A-Fa-f]{16}$/.test(v) || /^[0-9A-Fa-f]{40}$/.test(v)
+  return /^[0-9A-Fa-f]{16}$/.test(v) || /^[0-9A-Fa-f]{40}$/.test(v) || /^[0-9A-Fa-f]{64}$/.test(v)   // key ID, v4, v6
 }
 
 export function isValidEnsName(v: string): boolean {
